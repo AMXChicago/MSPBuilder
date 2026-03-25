@@ -75,7 +75,7 @@ export function buildRecommendationPreview(organizationId: string) {
     deliveryModel: businessModel.deliveryModel
   };
 
-  const context = {
+  const normalizedContext = {
     scenarioId: undefined,
     contextVersion: "1.0.0",
     rulesVersion: "1.0.0",
@@ -110,20 +110,22 @@ export function buildRecommendationPreview(organizationId: string) {
     availableBaselines: [
       { category: "identity", code: "baseline.identity.mfa", label: "MFA for admin and end-user access" },
       { category: "endpoint", code: "baseline.endpoint.edr", label: "Managed endpoint detection and response" },
-      { category: "backup", code: "baseline.backup.monitoring", label: "Backup monitoring and restore validation" }
+      { category: "backup", code: "baseline.backup.monitoring", label: "Backup monitoring and restore validation" },
+      { category: "email", code: "baseline.email.protection", label: "Email security hardening and protection" },
+      { category: "network", code: "baseline.network.segmentation", label: "Network segmentation and secure edge control" }
     ],
     generatedAt: timestamp
   };
 
   const scenario = saveScenario({
     organizationId,
-    contextVersion: context.contextVersion,
-    rulesVersion: context.rulesVersion,
+    contextVersion: normalizedContext.contextVersion,
+    rulesVersion: normalizedContext.rulesVersion,
     status: "evaluated",
     ...(founderProfile
       ? {
           founderProfileId: founderProfile.id,
-          founderProfileSnapshot: context.founderProfile
+          founderProfileSnapshot: normalizedContext.founderProfile
         }
       : {}),
     ...(businessModelRecord ? { businessModelId: businessModelRecord.id } : {}),
@@ -139,21 +141,26 @@ export function buildRecommendationPreview(organizationId: string) {
     }
   });
 
-  const hydratedContext = {
-    ...context,
+  const context = {
+    ...normalizedContext,
     scenarioId: scenario.id
   };
 
-  const outputs = [
-    ...recommendationRegistry.pricingReadiness.run(hydratedContext),
-    ...recommendationRegistry.packageCompleteness.run(hydratedContext),
-    ...recommendationRegistry.stackFit.run(hydratedContext),
-    ...recommendationRegistry.securityBaseline.run(hydratedContext)
-  ];
+  const policyOutputs = {
+    pricingReadiness: recommendationRegistry.pricingReadiness.run(context)[0],
+    packageCompleteness: recommendationRegistry.packageCompleteness.run(context)[0],
+    stackFit: recommendationRegistry.stackFit.run(context)[0],
+    securityBaseline: recommendationRegistry.securityBaseline.run(context)[0]
+  };
 
   return {
     scenario,
-    context: hydratedContext,
-    outputs
+    normalizedContext: context,
+    policyOutputs,
+    outputs: Object.values(policyOutputs),
+    explainability: {
+      summaries: Object.values(policyOutputs).map((output) => output.summary),
+      reasons: Object.values(policyOutputs).flatMap((output) => output.reasons)
+    }
   };
 }
