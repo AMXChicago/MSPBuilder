@@ -1,4 +1,4 @@
-import type { AuditedEntity, LifecycleStatus, SlaTier, SupportHours, TenantScoped } from "../common/types";
+import type { AuditedEntity, LifecycleStatus, PriorityLevel, SlaTier, SupportHours, TenantScoped } from "../common/types";
 
 export interface ServiceDefinition extends AuditedEntity, TenantScoped {
   name: string;
@@ -14,19 +14,21 @@ export interface ServicePackage extends AuditedEntity, TenantScoped {
   description: string;
   targetPersona: string;
   includesSecurityBaseline: boolean;
-  slaTier: SlaTier;
-  supportHours: SupportHours;
-  exclusions: string[];
+  defaultSlaTier: SlaTier;
+  defaultSupportHours: SupportHours;
+  defaultExclusions: string[];
   status: LifecycleStatus;
 }
 
 export interface ServicePackageItem extends AuditedEntity, TenantScoped {
   servicePackageId: string;
   serviceDefinitionId: string;
-  requirement: "required" | "optional";
+  isRequired: boolean;
   includedQuantity: number;
-  quantityUnit: string;
-  limitSummary?: string;
+  slaTier: SlaTier;
+  supportHours: SupportHours;
+  exclusions: string[];
+  priorityLevel: PriorityLevel;
   notes?: string;
   sortOrder: number;
 }

@@ -1,6 +1,8 @@
 import type { Repository } from "../common/repository";
-import type { PricingInput } from "../pricing/types";
+import type { PricingModel } from "../pricing/types";
 
-export interface PricingInputRepository extends Repository<PricingInput> {
-  getByServicePackageId(servicePackageId: string): Promise<PricingInput | null>;
+export interface PricingModelRepository extends Repository<PricingModel> {
+  getByServicePackageId(servicePackageId: string): Promise<PricingModel | null>;
 }
+
+export type PricingInputRepository = PricingModelRepository;

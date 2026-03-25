@@ -1,6 +1,6 @@
-import type { AuditedEntity, BillingFrequency, CurrencyCode, MarginBehavior, PricingUnit, TenantScoped } from "../common/types";
+import type { AuditedEntity, BillingFrequency, CurrencyCode, PricingUnit, TenantScoped } from "../common/types";
 
-export interface PricingInput extends AuditedEntity, TenantScoped {
+export interface PricingModel extends AuditedEntity, TenantScoped {
   servicePackageId: string;
   pricingUnit: PricingUnit;
   currencyCode: CurrencyCode;
@@ -11,10 +11,14 @@ export interface PricingInput extends AuditedEntity, TenantScoped {
   overageUnitPrice: number;
   billingFrequency: BillingFrequency;
   contractTermMonths: number;
-  marginBehavior: MarginBehavior;
+  passthroughCost: number;
+  markupPercentage: number;
+  effectiveMarginPercent?: number;
   targetMarginPercent: number;
   floorMarginPercent: number;
 }
+
+export type PricingInput = PricingModel;
 
 export interface VendorCostProfile extends AuditedEntity, TenantScoped {
   vendorId: string;
@@ -27,7 +31,8 @@ export interface VendorCostProfile extends AuditedEntity, TenantScoped {
 export interface PricingAssumption extends TenantScoped {
   code: string;
   description: string;
-  defaultMarginBehavior: MarginBehavior;
+  defaultPricingUnit: PricingUnit;
   defaultBillingFrequency: BillingFrequency;
+  defaultMarkupPercentage: number;
   recommendedContractTermMonths: number;
 }

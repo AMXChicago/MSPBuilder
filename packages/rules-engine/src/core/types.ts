@@ -1,23 +1,24 @@
 import type {
   BaselineCategory,
-  BusinessModel,
-  FounderProfile,
-  PricingInput,
+  RecommendationConstraintSnapshot,
+  BusinessModelSnapshot,
+  FounderProfileSnapshot,
+  PricingModelSnapshot,
   RecommendationFamily,
-  ServicePackage,
-  ServicePackageItem,
-  StackRecommendation,
+  ServicePackageSnapshot,
   Vendor,
   VendorCostProfile
 } from "@launch-os/domain";
 
 export interface RecommendationContext {
-  organizationId: string;
-  founderProfile: FounderProfile | null;
-  businessModel: BusinessModel | null;
-  servicePackage: ServicePackage | null;
-  servicePackageItems: ServicePackageItem[];
-  pricingInput: PricingInput | null;
+  scenarioId?: string;
+  contextVersion: string;
+  rulesVersion: string;
+  founderProfile?: FounderProfileSnapshot;
+  businessModel: BusinessModelSnapshot;
+  servicePackage: ServicePackageSnapshot;
+  pricingModel: PricingModelSnapshot;
+  constraints: RecommendationConstraintSnapshot;
   vendors: Vendor[];
   vendorCostProfiles: VendorCostProfile[];
   availableBaselines: SecurityBaselineOption[];

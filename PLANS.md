@@ -4,15 +4,15 @@
 MSP/MSSP Launch OS
 
 ## Current Phase
-Foundation / Architecture / First Product Slice
+Foundation / Architecture / Domain Correction
 
 ## Goal Of This Phase
-Deepen the domain foundation for the first real product slice with:
-- MSP/MSSP-specific founder and business model inputs
-- service package composition that supports real offer design
-- pricing input structures that support recurring-service economics
-- recommendation context snapshots for explainable outputs
-- minimal API and internal web forms to validate the model end to end
+Correct and deepen the core MSP/MSSP domain model with:
+- a first-class recommendation scenario that stores all recommendation inputs
+- MSP-specific pricing model fields that support margin and markup analysis
+- service package composition rich enough for real managed-service offers
+- business model posture fields that materially influence recommendations
+- rules-engine inputs that depend on domain snapshots, not UI-facing models
 
 ## MVP Scope
 ### In MVP
@@ -61,16 +61,14 @@ Deepen the domain foundation for the first real product slice with:
 - KPI Tracking
 
 ## Major Deliverables In This Pass
-1. Refine Prisma schema for founder profile, business model, package composition, pricing inputs, and recommendation scenarios
-2. Add typed domain contracts, enums, and repository interfaces for the first product slice
-3. Expand the rules-engine context and add policy stubs for readiness and fit scoring
-4. Add seed/config shapes for service definitions, package archetypes, vendor metadata, and pricing assumptions
-5. Implement minimal API routes with validation for the first product slice
-6. Implement minimal internal web forms to validate the new model
-7. Update architecture and user-flow documentation to reflect the richer offer-design model
+1. Introduce a first-class recommendation scenario model with explicit snapshots and constraints
+2. Upgrade pricing, service package composition, and business model schemas for MSP/MSSP specificity
+3. Align shared domain contracts and repository interfaces with the corrected schema
+4. Strengthen rules-engine context definitions so future scoring plugs into stable domain inputs
+5. Update architecture documentation to explain why these domain changes exist
 
 ## Non-Goals For This Pass
-- polished UI implementation
+- UI implementation work
 - live auth integration
 - real payment flows
 - production deployment automation
