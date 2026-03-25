@@ -7,7 +7,15 @@
       {
         "name": "next"
       }
-    ]
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@launch-os/domain": ["../../packages/domain/src"],
+      "@launch-os/rules-engine": ["../../packages/rules-engine/src"],
+      "@launch-os/templates": ["../../packages/templates/src"],
+      "@launch-os/database": ["../../packages/database/src"]
+    }
   },
   "include": [
     "next-env.d.ts",

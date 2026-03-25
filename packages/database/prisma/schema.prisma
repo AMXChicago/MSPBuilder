@@ -25,6 +25,40 @@ enum LifecycleStatus {
   ARCHIVED
 }
 
+enum BusinessType {
+  MSP
+  MSSP
+  HYBRID
+  CO_MANAGED
+}
+
+enum DeliveryModel {
+  REMOTE
+  ONSITE
+  HYBRID
+  CO_MANAGED
+}
+
+enum ComplianceSensitivity {
+  LOW
+  MODERATE
+  HIGH
+  REGULATED
+}
+
+enum BudgetPositioning {
+  BUDGET
+  MAINSTREAM
+  PREMIUM
+  ENTERPRISE
+}
+
+enum FounderMaturity {
+  NEW_OPERATOR
+  EXPERIENCED_BUILDER
+  SCALE_READY
+}
+
 enum ServiceCategory {
   HELPDESK
   SECURITY
@@ -41,11 +75,42 @@ enum PackageTier {
   ENTERPRISE
 }
 
-enum PricingStrategy {
+enum ServiceRequirement {
+  REQUIRED
+  OPTIONAL
+}
+
+enum SlaTier {
+  BEST_EFFORT
+  BUSINESS_HOURS
+  PRIORITY
+  TWENTY_FOUR_SEVEN
+}
+
+enum SupportHours {
+  BUSINESS_HOURS
+  EXTENDED_HOURS
+  TWENTY_FOUR_SEVEN
+}
+
+enum PricingUnit {
   PER_USER
   PER_DEVICE
+  PER_LOCATION
+  PER_TENANT
   FLAT_RATE
-  HYBRID
+}
+
+enum BillingFrequency {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+enum MarginBehavior {
+  PASSTHROUGH
+  MARKUP
+  BLENDED
 }
 
 enum VendorCategory {
@@ -82,6 +147,18 @@ enum KpiUnit {
   DAYS
 }
 
+enum RecommendationFamily {
+  PRICING_READINESS
+  PACKAGE_COMPLETENESS
+  STACK_FIT
+  SECURITY_BASELINE
+}
+
+enum ScenarioStatus {
+  DRAFT
+  EVALUATED
+}
+
 model User {
   id              String               @id @default(cuid())
   email           String               @unique
@@ -93,28 +170,31 @@ model User {
 }
 
 model Organization {
-  id                       String                    @id @default(cuid())
-  name                     String
-  slug                     String                    @unique
-  status                   OrganizationStatus        @default(ACTIVE)
-  createdAt                DateTime                  @default(now())
-  updatedAt                DateTime                  @updatedAt
-  members                  OrganizationMember[]
-  founderProfiles          FounderProfile[]
-  businessModels           BusinessModel[]
-  serviceDefinitions       ServiceDefinition[]
-  servicePackages          ServicePackage[]
-  pricingModels            PricingModel[]
-  vendorCosts              VendorCostProfile[]
-  vendors                  Vendor[]
-  stackRecommendations     StackRecommendation[]
-  templates                TemplateAsset[]
-  onboardingChecklists     OnboardingChecklist[]
-  onboardingChecklistSteps OnboardingChecklistStep[]
-  sopDocuments             SopDocument[]
-  securityBaselines        SecurityBaseline[]
-  launchCampaigns          LaunchCampaign[]
-  kpiRecords               KpiRecord[]
+  id                        String                     @id @default(cuid())
+  name                      String
+  slug                      String                     @unique
+  status                    OrganizationStatus         @default(ACTIVE)
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  members                   OrganizationMember[]
+  founderProfiles           FounderProfile[]
+  businessModels            BusinessModel[]
+  serviceDefinitions        ServiceDefinition[]
+  servicePackages           ServicePackage[]
+  servicePackageItems       ServicePackageItem[]
+  pricingInputs             PricingInput[]
+  vendorCosts               VendorCostProfile[]
+  vendors                   Vendor[]
+  recommendationScenarios   RecommendationScenario[]
+  recommendationOutputLinks RecommendationOutputLink[]
+  stackRecommendations      StackRecommendation[]
+  templates                 TemplateAsset[]
+  onboardingChecklists      OnboardingChecklist[]
+  onboardingChecklistSteps  OnboardingChecklistStep[]
+  sopDocuments              SopDocument[]
+  securityBaselines         SecurityBaseline[]
+  launchCampaigns           LaunchCampaign[]
+  kpiRecords                KpiRecord[]
 }
 
 model OrganizationMember {
@@ -133,6 +213,7 @@ model FounderProfile {
   id                       String       @id @default(cuid())
   organizationId           String
   userId                   String
+  fullName                 String
   roleTitle                String
   priorExperienceYears     Int
   targetGeo                String
@@ -145,23 +226,28 @@ model FounderProfile {
   updatedAt                DateTime     @updatedAt
   organization             Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user                     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recommendationScenarios  RecommendationScenario[]
 }
 
 model BusinessModel {
   id                       String                @id @default(cuid())
   organizationId           String
   name                     String
+  businessType             BusinessType
   targetVerticals          String[]
   targetCompanySizes       String[]
+  deliveryModel            DeliveryModel
+  complianceSensitivity    ComplianceSensitivity
+  budgetPositioning        BudgetPositioning
+  founderMaturity          FounderMaturity
   revenueStrategy          String
-  primaryDeliveryMode      String
   targetGrossMarginPercent Decimal               @db.Decimal(5, 2)
   currencyCode             String                @default("USD")
   status                   LifecycleStatus       @default(DRAFT)
   createdAt                DateTime              @default(now())
   updatedAt                DateTime              @updatedAt
   organization             Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  stackRecommendations     StackRecommendation[]
+  recommendationScenarios  RecommendationScenario[]
 }
 
 model ServiceDefinition {
@@ -175,7 +261,7 @@ model ServiceDefinition {
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
   organization       Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  packageServices    ServicePackageService[]
+  packageItems       ServicePackageItem[]
   vendorCostProfiles VendorCostProfile[]
 }
 
@@ -187,39 +273,59 @@ model ServicePackage {
   description              String
   targetPersona            String
   includesSecurityBaseline Boolean                   @default(false)
+  slaTier                  SlaTier
+  supportHours             SupportHours
+  exclusions               String[]
   status                   LifecycleStatus           @default(DRAFT)
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
   organization             Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  services                 ServicePackageService[]
-  pricingModels            PricingModel[]
-  stackRecommendations     StackRecommendation[]
+  items                    ServicePackageItem[]
+  pricingInputs            PricingInput[]
+  recommendationScenarios  RecommendationScenario[]
 }
 
-model ServicePackageService {
-  servicePackageId    String
-  serviceDefinitionId String
-  sortOrder           Int
-  servicePackage      ServicePackage    @relation(fields: [servicePackageId], references: [id], onDelete: Cascade)
-  serviceDefinition   ServiceDefinition @relation(fields: [serviceDefinitionId], references: [id], onDelete: Cascade)
-
-  @@id([servicePackageId, serviceDefinitionId])
-}
-
-model PricingModel {
-  id                  String          @id @default(cuid())
+model ServicePackageItem {
+  id                  String              @id @default(cuid())
   organizationId      String
   servicePackageId    String
-  pricingStrategy     PricingStrategy
-  currencyCode        String          @default("USD")
-  monthlyBasePrice    Decimal         @db.Decimal(10, 2)
-  onboardingFee       Decimal         @db.Decimal(10, 2)
-  targetMarginPercent Decimal         @db.Decimal(5, 2)
-  floorMarginPercent  Decimal         @db.Decimal(5, 2)
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
-  organization        Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  servicePackage      ServicePackage  @relation(fields: [servicePackageId], references: [id], onDelete: Cascade)
+  serviceDefinitionId String
+  requirement         ServiceRequirement
+  includedQuantity    Decimal             @db.Decimal(10, 2)
+  quantityUnit        String
+  limitSummary        String?
+  notes               String?
+  sortOrder           Int
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  organization        Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  servicePackage      ServicePackage      @relation(fields: [servicePackageId], references: [id], onDelete: Cascade)
+  serviceDefinition   ServiceDefinition   @relation(fields: [serviceDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([servicePackageId, serviceDefinitionId])
+}
+
+model PricingInput {
+  id                  String           @id @default(cuid())
+  organizationId      String
+  servicePackageId    String
+  pricingUnit         PricingUnit
+  currencyCode        String           @default("USD")
+  monthlyBasePrice    Decimal          @db.Decimal(10, 2)
+  onboardingFee       Decimal          @db.Decimal(10, 2)
+  minimumQuantity     Int
+  includedQuantity    Int
+  overageUnitPrice    Decimal          @db.Decimal(10, 2)
+  billingFrequency    BillingFrequency
+  contractTermMonths  Int
+  marginBehavior      MarginBehavior
+  targetMarginPercent Decimal          @db.Decimal(5, 2)
+  floorMarginPercent  Decimal          @db.Decimal(5, 2)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  organization        Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  servicePackage      ServicePackage   @relation(fields: [servicePackageId], references: [id], onDelete: Cascade)
+  recommendationScenarios RecommendationScenario[]
 }
 
 model Vendor {
@@ -242,7 +348,7 @@ model VendorCostProfile {
   organizationId      String
   vendorId            String
   serviceDefinitionId String?
-  costBasis           String
+  costBasis           PricingUnit
   unitCost            Decimal            @db.Decimal(10, 2)
   notes               String?
   createdAt           DateTime           @default(now())
@@ -252,18 +358,53 @@ model VendorCostProfile {
   serviceDefinition   ServiceDefinition? @relation(fields: [serviceDefinitionId], references: [id], onDelete: SetNull)
 }
 
+model RecommendationScenario {
+  id                  String                     @id @default(cuid())
+  organizationId      String
+  businessModelId     String?
+  servicePackageId    String?
+  pricingInputId      String?
+  founderProfileId    String?
+  scenarioVersion     String
+  status              ScenarioStatus             @default(DRAFT)
+  inputSnapshot       Json
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+  organization        Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  businessModel       BusinessModel?             @relation(fields: [businessModelId], references: [id], onDelete: SetNull)
+  servicePackage      ServicePackage?            @relation(fields: [servicePackageId], references: [id], onDelete: SetNull)
+  pricingInput        PricingInput?              @relation(fields: [pricingInputId], references: [id], onDelete: SetNull)
+  founderProfile      FounderProfile?            @relation(fields: [founderProfileId], references: [id], onDelete: SetNull)
+  outputLinks         RecommendationOutputLink[]
+  stackRecommendations StackRecommendation[]
+}
+
+model RecommendationOutputLink {
+  id                   String                @id @default(cuid())
+  organizationId       String
+  scenarioId           String
+  recommendationFamily RecommendationFamily
+  outputId             String
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  organization         Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  scenario             RecommendationScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, scenarioId, recommendationFamily])
+}
+
 model StackRecommendation {
   id                 String                      @id @default(cuid())
   organizationId     String
-  businessModelId    String
+  scenarioId         String?
+  businessModelId    String?
   servicePackageId   String?
   rationale          String[]
   confidenceScore    Decimal                     @db.Decimal(4, 3)
   createdAt          DateTime                    @default(now())
   updatedAt          DateTime                    @updatedAt
   organization       Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  businessModel      BusinessModel               @relation(fields: [businessModelId], references: [id], onDelete: Cascade)
-  servicePackage     ServicePackage?             @relation(fields: [servicePackageId], references: [id], onDelete: SetNull)
+  scenario           RecommendationScenario?     @relation(fields: [scenarioId], references: [id], onDelete: SetNull)
   vendors            StackRecommendationVendor[]
 }
 
@@ -370,3 +511,4 @@ model KpiRecord {
 
   @@index([organizationId, metricCode, periodStart, periodEnd])
 }
+

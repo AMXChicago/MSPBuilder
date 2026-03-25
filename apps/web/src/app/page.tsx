@@ -6,6 +6,14 @@ const pillars = [
   "Security baseline planning and KPI tracking"
 ];
 
+const internalLinks = [
+  ["/internal", "Internal Validation"],
+  ["/internal/founder-profile", "Founder Profile"],
+  ["/internal/business-model", "Business Model"],
+  ["/internal/service-package", "Service Package"],
+  ["/internal/pricing-input", "Pricing Input"]
+] as const;
+
 export default function HomePage() {
   return (
     <main
@@ -26,15 +34,23 @@ export default function HomePage() {
         }}
       >
         <p style={{ color: "var(--accent)", letterSpacing: "0.08em", textTransform: "uppercase", margin: 0 }}>
-          Foundation Scaffold
+          First Product Slice
         </p>
         <h1 style={{ fontSize: "clamp(3rem, 7vw, 5.5rem)", lineHeight: 0.95, margin: "16px 0 20px" }}>
           MSP/MSSP Launch OS
         </h1>
         <p style={{ maxWidth: 720, color: "var(--muted)", fontSize: 20, lineHeight: 1.6, margin: 0 }}>
-          A multi-tenant SaaS foundation for operators who need to design profitable services, choose the right stack,
-          standardize delivery, and launch with repeatable operating assets.
+          The repo now includes real offer-design primitives for founder posture, business model, package composition,
+          pricing inputs, and recommendation-context previews.
         </p>
+      </section>
+
+      <section style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 20 }}>
+        {internalLinks.map(([href, label]) => (
+          <a key={href} href={href} style={{ padding: "10px 14px", borderRadius: 999, background: "rgba(255,255,255,0.82)", border: "1px solid var(--border)" }}>
+            {label}
+          </a>
+        ))}
       </section>
 
       <section

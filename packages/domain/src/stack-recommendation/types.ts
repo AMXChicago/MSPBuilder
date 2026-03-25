@@ -9,7 +9,8 @@ export interface Vendor extends AuditedEntity, TenantScoped {
 }
 
 export interface StackRecommendation extends AuditedEntity, TenantScoped {
-  businessModelId: EntityId;
+  scenarioId?: EntityId;
+  businessModelId?: EntityId;
   packageId?: EntityId;
   vendorIds: EntityId[];
   rationale: string[];

@@ -4,8 +4,8 @@
 - use `Organization` as the tenant root
 - isolate user identity from tenant membership
 - normalize reusable business entities and join them explicitly
-- keep versioned content assets independent from runtime workflows
-- capture recommendation outputs separately from recommendation inputs
+- capture MSP/MSSP-specific offer design inputs instead of generic product fields
+- keep recommendation scenarios separate from recommendation outputs so decision traces remain explainable
 
 ## Core Entity Groups
 ### Identity And Tenancy
@@ -13,17 +13,19 @@
 - `Organization`
 - `OrganizationMember`
 
-### Business Design
+### Founder And Offer Design
 - `FounderProfile`
 - `BusinessModel`
 - `ServiceDefinition`
 - `ServicePackage`
-- `ServicePackageService`
-- `PricingModel`
+- `ServicePackageItem`
+- `PricingInput`
 
 ### Vendor And Recommendations
 - `Vendor`
 - `VendorCostProfile`
+- `RecommendationScenario`
+- `RecommendationOutputLink`
 - `StackRecommendation`
 - `StackRecommendationVendor`
 
@@ -38,20 +40,59 @@
 - `LaunchCampaign`
 - `KpiRecord`
 
+## New MVP-Specific Modeling Choices
+### BusinessModel
+`BusinessModel` now stores the operating posture that materially changes recommendations:
+- `businessType` distinguishes MSP, MSSP, Hybrid, and Co-Managed offers
+- `deliveryModel` captures remote, onsite, hybrid, or co-managed delivery expectations
+- `complianceSensitivity` and `budgetPositioning` influence stack and baseline selection later
+- `founderMaturity` helps recommendation policies adapt to operator stage
+
+These fields exist because MSP/MSSP design choices are not interchangeable. A co-managed healthcare offer should not inherit the same defaults as a budget-first remote-only SMB MSP.
+
+### ServicePackage And ServicePackageItem
+Package composition moved into first-class `ServicePackageItem` records so each package can express:
+- whether a service is required or optional
+- included quantities and units
+- limit summaries and operator notes
+- ordering within the package definition
+
+`ServicePackage` itself now stores `slaTier`, `supportHours`, and `exclusions` because these are essential parts of a managed-services offer, not display-only details.
+
+### PricingInput
+`PricingInput` replaces the earlier generic pricing model shape with fields that support recurring offer mechanics:
+- `pricingUnit`
+- `minimumQuantity`
+- `includedQuantity`
+- `overageUnitPrice`
+- `billingFrequency`
+- `contractTermMonths`
+- `marginBehavior`
+
+These inputs are necessary for later readiness checks, margin guardrails, and recommendation logic.
+
+### RecommendationScenario
+`RecommendationScenario` stores a versioned snapshot of the inputs used to generate recommendations. This gives the system:
+- a stable evaluation context
+- explainability over which inputs produced which outputs
+- a path to recommendation history and re-runs as rules evolve
+
+`RecommendationOutputLink` keeps the relationship between a scenario and recommendation outputs explicit without forcing every output type into one table.
+
 ## Key Relationships
 - one `User` can belong to many organizations
-- one `Organization` can have many founder profiles, business models, packages, templates, and KPI records
-- many services can belong to many service packages through `ServicePackageService`
-- many vendors can belong to many stack recommendations through `StackRecommendationVendor`
-- one onboarding checklist contains many ordered checklist steps
+- one `Organization` can have many founder profiles, business models, packages, pricing inputs, and recommendation scenarios
+- one `ServicePackage` contains many `ServicePackageItem` records
+- one `PricingInput` attaches to one service package and can be referenced by many recommendation scenarios over time
+- one `RecommendationScenario` can link to many outputs through `RecommendationOutputLink`
 
 ## Normalization Notes
-- service definitions are separate from service packages to support package reuse and future what-if modeling
-- vendor costs are separated from vendors so the same vendor can have service-specific cost assumptions
-- stack recommendations are persisted outputs, not embedded arrays on business models
-- checklist steps are first-class records to support ownership, ordering, and completion state later
+- service definitions remain separate from service packages to preserve reuse
+- package item metadata lives in the join entity because offer composition contains real business meaning
+- pricing inputs are independent from recommendation outputs so the same package can be evaluated repeatedly
+- recommendation scenarios snapshot inputs instead of relying on mutable live records at read time
 
 ## MVP Constraints
-- pricing formulas are stored as configuration fields, not a full expression language yet
-- recommendations are deterministic policy outputs, not ML-driven
-- template rendering is deferred; only metadata and interfaces exist in this pass
+- `RecommendationScenario.inputSnapshot` is stored as JSON for explicit traceability without over-modeling every draft-state variant yet
+- package items use maintainable explicit fields rather than a generic configuration blob
+- recommendation output links are generic enough to support multiple output families while keeping the schema understandable
