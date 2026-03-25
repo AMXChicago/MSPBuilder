@@ -117,7 +117,7 @@ function createContext(overrides: Partial<RecommendationContext>): Recommendatio
   };
 }
 
-test("solo low-budget MSP surfaces pricing and package guidance", () => {
+test("solo low-budget MSP surfaces practical stack and launch actions", () => {
   const context = createContext({
     businessModel: {
       name: "Solo MSP",
@@ -154,6 +154,8 @@ test("solo low-budget MSP surfaces pricing and package guidance", () => {
 
   assert.equal(preview.result.readinessLevel, "medium");
   assert.ok(preview.result.stackFitSummary.data.suggestedVendorIds.includes("vendor-m365"));
+  assert.ok(preview.result.launchBlockers.length > 0);
+  assert.equal(preview.result.nextThreeActions.length, 3);
 });
 
 test("healthcare-focused MSSP prioritizes security stack and critical baseline", () => {
@@ -232,9 +234,10 @@ test("healthcare-focused MSSP prioritizes security stack and critical baseline",
   assert.equal(preview.result.securityBaselineSummary.data.priorityLevel, "critical");
   assert.equal(preview.result.stackFitSummary.data.suggestedVendorIds[0], "vendor-huntress");
   assert.equal(preview.result.riskLevel, "low");
+  assert.ok(preview.result.launchAccelerators.some((item) => item.toLowerCase().includes("huntress") || item.toLowerCase().includes("security baseline")));
 });
 
-test("co-managed mid-market MSP detects missing helpdesk coherence", () => {
+test("co-managed mid-market MSP detects package coherence and launch blockers", () => {
   const context = createContext({
     businessModel: {
       name: "Co-Managed Mid-Market",
@@ -278,9 +281,10 @@ test("co-managed mid-market MSP detects missing helpdesk coherence", () => {
   assert.equal(preview.result.packageCompleteness.data.isComplete, false);
   assert.ok(preview.result.packageCompleteness.data.missingCapabilities.includes("helpdesk-coverage"));
   assert.equal(preview.result.riskLevel, "high");
+  assert.ok(preview.result.launchBlockers.some((item) => item.includes("helpdesk-coverage")));
 });
 
-test("premium security-first hybrid operator prefers security and identity stack blend", () => {
+test("premium security-first hybrid operator gets blended stack guidance", () => {
   const context = createContext({
     businessModel: {
       name: "Premium Hybrid Security",
@@ -367,6 +371,7 @@ test("premium security-first hybrid operator prefers security and identity stack
   assert.equal(preview.result.readinessLevel, "high");
   assert.ok(preview.result.stackFitSummary.data.suggestedVendorIds.includes("vendor-huntress"));
   assert.ok(preview.result.stackFitSummary.data.suggestedVendorIds.includes("vendor-m365"));
+  assert.ok(preview.result.stackFitSummary.data.topChoices.length >= 2);
 });
 
 test("incomplete inputs surface missing information and lower confidence", () => {
@@ -417,6 +422,7 @@ test("incomplete inputs surface missing information and lower confidence", () =>
   assert.ok(preview.result.missingInformation.missingSections.includes("founder-profile"));
   assert.equal(preview.result.readinessLevel, "low");
   assert.ok(preview.result.topActionItems.length > 0);
+  assert.ok(preview.result.explainability.items.some((item) => item.category === "launch"));
 });
 
 test("aggregation uses configured weights", () => {

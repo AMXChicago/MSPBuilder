@@ -1,4 +1,4 @@
-import type { RecommendationContext, RecommendationPolicy, SecurityBaselineSelectionOutput } from "../core/types";
+import type { RecommendationContext, RecommendationPolicy, SecurityBaselineSelectionOutput, ExplanationItem } from "../core/types";
 import { clampConfidence, clampScore, detectVerticals, inferServiceCapabilities, isSecurityLedContext } from "../core/scoring";
 
 export const securityBaselineSelectionPolicy: RecommendationPolicy<SecurityBaselineSelectionOutput> = {
@@ -15,12 +15,19 @@ export const securityBaselineSelectionPolicy: RecommendationPolicy<SecurityBasel
     ];
     const positiveSignals: string[] = [];
     const negativeSignals: string[] = [];
+    const explanationItems: ExplanationItem[] = [];
     let priorityLevel: "standard" | "high" | "critical" = "standard";
 
     if (context.businessModel.businessType === "mssp" || context.constraints.complianceSensitivity === "high") {
       priorityLevel = "critical";
       rationale.push("Business posture and compliance sensitivity require a security-first baseline.");
       positiveSignals.push("Scenario warrants a critical-priority security baseline.");
+      explanationItems.push({
+        category: "security",
+        impact: "positive",
+        message: "Security baseline priority is critical because the offer is compliance-sensitive or MSSP-led.",
+        recommendedAction: "Plan identity, endpoint, continuity, and monitoring controls before launch."
+      });
     } else if (isSecurityLedContext(context) || verticals.healthcare || verticals.finance) {
       priorityLevel = "high";
       rationale.push("Vertical and package profile indicate elevated security expectations.");
@@ -44,6 +51,12 @@ export const securityBaselineSelectionPolicy: RecommendationPolicy<SecurityBasel
       rationale.push("Security-oriented package items justify stronger endpoint and identity controls.");
     } else if (isSecurityLedContext(context)) {
       negativeSignals.push("Security-oriented business posture is not strongly reflected in package capabilities yet.");
+      explanationItems.push({
+        category: "security",
+        impact: "warning",
+        message: "Security posture is stronger than the security content currently present in the package.",
+        recommendedAction: "Add visible security services before presenting the offer as security-first."
+      });
     }
 
     if (verticals.healthcare || verticals.finance) {
@@ -63,6 +76,7 @@ export const securityBaselineSelectionPolicy: RecommendationPolicy<SecurityBasel
         contributingFactors,
         positiveSignals,
         negativeSignals,
+        explanationItems,
         data: {
           suggestedBaselineCodes,
           rationale,

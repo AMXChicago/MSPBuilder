@@ -1,4 +1,4 @@
-import type { PricingReadinessOutput, RecommendationContext, RecommendationPolicy } from "../core/types";
+import type { PricingReadinessOutput, RecommendationContext, RecommendationPolicy, ExplanationItem } from "../core/types";
 import { calculateEffectiveMarginPercent, clampConfidence, clampScore, inferServiceCapabilities } from "../core/scoring";
 
 export const pricingReadinessPolicy: RecommendationPolicy<PricingReadinessOutput> = {
@@ -16,6 +16,7 @@ export const pricingReadinessPolicy: RecommendationPolicy<PricingReadinessOutput
     ];
     const positiveSignals: string[] = [];
     const negativeSignals: string[] = [];
+    const explanationItems: ExplanationItem[] = [];
     const capabilities = inferServiceCapabilities(context.servicePackage.items);
     const effectiveMarginPercent = calculateEffectiveMarginPercent(context);
 
@@ -24,16 +25,43 @@ export const pricingReadinessPolicy: RecommendationPolicy<PricingReadinessOutput
     if (context.pricingModel.contractTermMonths <= 0) missingFields.push("contractTermMonths");
     if (context.pricingModel.overageUnitPrice < 0) missingFields.push("overageUnitPrice");
 
+    for (const field of missingFields) {
+      explanationItems.push({
+        category: "pricing",
+        impact: "warning",
+        message: `Pricing field ${field} is missing or invalid.`,
+        recommendedAction: `Complete ${field} before relying on the recommendation output.`
+      });
+    }
+
     if (context.pricingModel.minimumQuantity >= context.pricingModel.includedQuantity) {
       positiveSignals.push("Minimum quantity is aligned with or above the included quantity threshold.");
+      explanationItems.push({
+        category: "pricing",
+        impact: "positive",
+        message: "Commercial floor is aligned with the included service commitment.",
+        recommendedAction: "Keep minimum quantity aligned to the included service load."
+      });
     } else {
       improvementNotes.push("Minimum quantity is lower than included quantity; align the commercial floor with included coverage.");
       negativeSignals.push("Commercial floor is weaker than the included service threshold.");
+      explanationItems.push({
+        category: "pricing",
+        impact: "negative",
+        message: "Included quantity exceeds the commercial minimum, which weakens the floor of the offer.",
+        recommendedAction: "Raise minimum quantity or reduce included quantity to protect service economics."
+      });
     }
 
     if (context.pricingModel.billingFrequency === "annual" && context.pricingModel.contractTermMonths < 12) {
       riskFlags.push("Annual billing is configured with a contract term shorter than 12 months.");
       negativeSignals.push("Billing cadence and contract term are misaligned.");
+      explanationItems.push({
+        category: "pricing",
+        impact: "warning",
+        message: "Annual billing is misaligned with the configured contract term.",
+        recommendedAction: "Use a 12+ month term for annual billing or reduce the billing frequency."
+      });
     }
 
     if (context.pricingModel.billingFrequency === "quarterly" && context.pricingModel.contractTermMonths < 3) {
@@ -43,12 +71,30 @@ export const pricingReadinessPolicy: RecommendationPolicy<PricingReadinessOutput
 
     if (effectiveMarginPercent !== null && effectiveMarginPercent >= context.pricingModel.targetMarginPercent) {
       positiveSignals.push("Estimated effective margin meets or exceeds the target margin.");
+      explanationItems.push({
+        category: "pricing",
+        impact: "positive",
+        message: `Estimated effective margin of ${effectiveMarginPercent}% meets the target margin.`,
+        recommendedAction: "Validate this margin against real vendor costs as implementation continues."
+      });
     } else if (effectiveMarginPercent !== null && effectiveMarginPercent < context.pricingModel.floorMarginPercent) {
       riskFlags.push("Effective margin falls below the configured floor margin.");
       negativeSignals.push("Margin is below the floor threshold and risks unsustainable delivery.");
+      explanationItems.push({
+        category: "pricing",
+        impact: "negative",
+        message: `Estimated effective margin of ${effectiveMarginPercent}% is below the floor margin.`,
+        recommendedAction: "Increase price, reduce passthrough cost, or narrow included scope before launch."
+      });
     } else if (effectiveMarginPercent !== null && effectiveMarginPercent < context.pricingModel.targetMarginPercent) {
       improvementNotes.push("Effective margin is below the target margin and may reduce service sustainability.");
       negativeSignals.push("Margin is below target and limits pricing resilience.");
+      explanationItems.push({
+        category: "pricing",
+        impact: "warning",
+        message: `Estimated effective margin of ${effectiveMarginPercent}% is below the target margin.`,
+        recommendedAction: "Refine price points or package scope until the offer can sustain delivery."
+      });
     }
 
     if (context.pricingModel.pricingUnit === "hybrid") {
@@ -58,6 +104,12 @@ export const pricingReadinessPolicy: RecommendationPolicy<PricingReadinessOutput
     if (context.pricingModel.pricingUnit === "user" && capabilities.endpoint && !capabilities.helpdesk) {
       riskFlags.push("Per-user pricing may not align cleanly with a package dominated by endpoint-only coverage.");
       negativeSignals.push("Pricing unit does not cleanly match the service package emphasis.");
+      explanationItems.push({
+        category: "pricing",
+        impact: "warning",
+        message: "Per-user pricing does not fully match an endpoint-dominant package design.",
+        recommendedAction: "Consider device or hybrid pricing for endpoint-heavy services."
+      });
     }
 
     if (context.pricingModel.pricingUnit === "device" && capabilities.helpdesk && context.businessModel.businessType === "msp") {
@@ -102,6 +154,7 @@ export const pricingReadinessPolicy: RecommendationPolicy<PricingReadinessOutput
         contributingFactors,
         positiveSignals,
         negativeSignals,
+        explanationItems,
         data: {
           isReady,
           missingFields,

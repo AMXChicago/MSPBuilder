@@ -1,10 +1,10 @@
 # System Design
 
 ## Architecture Summary
-The current MVP runs as a TypeScript monorepo with a thin Next.js workflow UI, a Fastify API, a centralized rules engine, and Prisma-backed persistence. The active founder workflow is now authenticated, membership-scoped, and persisted for reloadable multi-tenant use.
+The current MVP runs as a TypeScript monorepo with a thin Next.js workflow UI, a Fastify API, a centralized rules engine, and Prisma-backed persistence. The active founder workflow is authenticated, membership-scoped, and now produces richer launch-readiness recommendations that are explainable and operator-reviewable.
 
 ## Authentication Approach
-The API now uses Prisma-backed bearer sessions for authenticated access.
+The API uses Prisma-backed bearer sessions for authenticated access.
 
 Why this approach fits the repo now:
 - simple enough to implement and test without introducing a full identity platform immediately
@@ -19,7 +19,7 @@ Current auth primitives:
 ## Runtime Responsibilities
 ### Web
 - calls authenticated workflow endpoints
-- will eventually attach a bearer token and active organization context
+- renders a minimal operator-facing recommendation review surface
 - does not contain recommendation or tenant-authorization logic
 
 ### API
@@ -32,8 +32,15 @@ Current auth primitives:
 
 ### Rules Engine
 - consumes normalized `RecommendationContext`
-- produces pricing, package, stack, and security outputs
-- aggregates them into one result with score, readiness, risk, confidence, missing-information warnings, action items, and next steps
+- scores pricing readiness, package completeness, stack fit, and security baseline selection
+- aggregates these into a stable `RecommendationResult` with:
+  - overall score
+  - readiness, risk, and confidence
+  - launch summary
+  - launch blockers and accelerators
+  - next three actions
+  - structured explanation items
+  - top stack choices with fit reasons and tradeoffs
 
 ### Database Layer
 - uses Prisma as the persistence boundary
@@ -41,8 +48,68 @@ Current auth primitives:
 - every repository method requires explicit organization context
 - workflow state, recommendation scenarios, recommendation results, and auth sessions are persisted
 
+## Recommendation Output Model
+The recommendation output is now designed for founder/operator review rather than raw policy inspection.
+
+Key result sections:
+- `overallScore`, `readinessLevel`, `riskLevel`, `confidenceLevel`
+- `launchSummary`
+- `launchBlockers`
+- `launchAccelerators`
+- `nextThreeActions`
+- `stackFitSummary.data.topChoices`
+- `explainability.items`
+
+This creates a stable, frontend-friendly API contract where the UI can render a useful review experience without reconstructing logic from scattered policy strings.
+
+## Explainability Structure
+Each policy can now emit structured explanation items instead of only freeform strings.
+
+Each explanation item includes:
+- `category`
+- `impact`
+- `message`
+- `recommendedAction`
+
+This improves operator usability in three ways:
+- reasons can be grouped consistently by pricing, package, stack, security, and launch
+- positive versus negative signals are clearer
+- every important issue can carry an explicit action recommendation
+
+## Improved Stack-Fit Logic
+Vendor-fit scoring is now materially sensitive to founder workflow inputs.
+
+At minimum, stack scoring now considers:
+- business type
+- target verticals
+- delivery model
+- compliance sensitivity
+- budget positioning
+- founder maturity
+- service package composition
+- pricing posture
+
+Stack outputs now include:
+- top recommended vendor choices
+- why each choice fits
+- tradeoffs to watch
+- coverage gaps in the current shortlist
+- vendor score breakdowns for operator review
+
+## Launch Readiness Interpretation
+The aggregated recommendation now explicitly answers whether the founder looks launch-ready, not just whether individual policies scored well.
+
+Interpretation logic combines:
+- weighted policy scores
+- missing information and input completeness
+- package and pricing blockers
+- stack coverage gaps
+- positive accelerators already present in the workflow
+
+This gives internal operators a more useful answer than a raw score alone.
+
 ## Membership-Based Tenant Resolution
-The tenant boundary is now enforced through one reusable path.
+The tenant boundary is enforced through one reusable path.
 
 Resolution flow:
 1. API reads `Authorization: Bearer <token>`.
@@ -52,8 +119,6 @@ Resolution flow:
 5. `OrganizationMember` is checked for the authenticated user and requested organization.
 6. If membership exists, the request receives an authenticated tenant context.
 7. If membership does not exist, the request is rejected with `403`.
-
-This keeps organization selection explicit while ensuring identity comes from authentication rather than caller-controlled payload fields.
 
 ## Authorization Model
 Current authorization is intentionally simple and explicit.
@@ -67,13 +132,6 @@ Rules enforced now:
 
 Role capture is already present through `OrganizationMember.role`, but route-level behavior is not yet differentiated by role. Future RBAC can plug in after membership resolution, before service orchestration.
 
-## Persisted Founder Workflow
-1. Authenticated operator calls workflow endpoints with a bearer token and active organization header.
-2. Shared tenant-resolution middleware authenticates the user and validates membership.
-3. Workflow handlers validate payloads and delegate to application services.
-4. Services read and write tenant-scoped repositories.
-5. Recommendation preview rebuilds from the latest persisted tenant records and persists scenario/result output.
-
 ## Development Fallback Behavior
 The old silent development fallback has been removed from the production path.
 
@@ -84,6 +142,7 @@ A development bootstrap path still exists, but only when both of these are true:
 Even then, it is opt-in at request time through an explicit development header rather than being silently applied to every unauthenticated request.
 
 ## Known Limitations
+- Vendor-fit still depends on seeded vendor profiles rather than a fully managed vendor intelligence dataset.
 - The web app still needs a first-class login/session flow wired into these authenticated API requirements.
 - Session issuance and revocation endpoints are not yet built for operators.
 - RBAC is still membership-based only and does not yet differentiate owner/admin/operator/advisor privileges in handlers.

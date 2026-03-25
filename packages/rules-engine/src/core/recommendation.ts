@@ -10,7 +10,8 @@ import type {
   SecurityBaselineSelectionOutput,
   StackFitOutput,
   UnifiedRecommendationResult,
-  ReadinessLevel
+  ReadinessLevel,
+  ExplanationItem
 } from "./types";
 import { clampConfidence, clampScore } from "./scoring";
 import { recommendationRegistry } from "../registry/default-registry";
@@ -48,6 +49,18 @@ function unique(items: string[]) {
   return [...new Set(items.filter(Boolean))];
 }
 
+function uniqueExplanationItems(items: ExplanationItem[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = `${item.category}|${item.impact}|${item.message}|${item.recommendedAction ?? ""}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
 function buildMissingInformation(context: RecommendationContext, detailedBreakdown: RecommendationPreviewResponse["detailedBreakdown"]) {
   const missingSections: string[] = [];
   const warnings: string[] = [];
@@ -80,6 +93,10 @@ function buildMissingInformation(context: RecommendationContext, detailedBreakdo
     warnings.push(`Package capability gaps detected: ${detailedBreakdown.packageCompleteness.data.missingCapabilities.join(", ")}.`);
   }
 
+  if (detailedBreakdown.stackFit.data.coverageGaps.length > 0) {
+    warnings.push(...detailedBreakdown.stackFit.data.coverageGaps);
+  }
+
   return {
     missingSections: unique(missingSections),
     warnings: unique(warnings),
@@ -93,12 +110,13 @@ function buildTopActionItems(detailedBreakdown: RecommendationPreviewResponse["d
     ...detailedBreakdown.pricingReadiness.data.improvementNotes,
     ...detailedBreakdown.packageCompleteness.data.missingCapabilities.map((capability) => `Add or clarify package capability: ${capability}`),
     ...detailedBreakdown.packageCompleteness.data.packageRisks,
-    ...detailedBreakdown.securityBaseline.data.rationale,
-    ...detailedBreakdown.stackFit.data.fitNotes
-  ]).slice(0, 6);
+    ...detailedBreakdown.stackFit.data.coverageGaps,
+    ...detailedBreakdown.stackFit.data.topChoices.flatMap((choice) => choice.tradeoffs.slice(0, 1).map((tradeoff) => `Evaluate stack tradeoff: ${tradeoff}`)),
+    ...detailedBreakdown.securityBaseline.data.rationale
+  ]).slice(0, 8);
 }
 
-function buildRecommendedNextSteps(result: { readinessLevel: ReadinessLevel; riskLevel: RiskLevel; confidenceLevel: ConfidenceLevel; missingInformation: { hasBlockingGaps: boolean } }) {
+function buildRecommendedNextSteps(result: { readinessLevel: ReadinessLevel; riskLevel: RiskLevel; confidenceLevel: ConfidenceLevel; missingInformation: { hasBlockingGaps: boolean } }, detailedBreakdown: RecommendationPreviewResponse["detailedBreakdown"]) {
   const steps: string[] = [];
 
   if (result.missingInformation.hasBlockingGaps) {
@@ -107,6 +125,10 @@ function buildRecommendedNextSteps(result: { readinessLevel: ReadinessLevel; ris
 
   if (result.riskLevel === "high") {
     steps.push("Resolve the highest-risk package and pricing gaps before validating the offer internally.");
+  }
+
+  if (detailedBreakdown.stackFit.data.topChoices.length > 0) {
+    steps.push(`Review ${detailedBreakdown.stackFit.data.topChoices[0].vendorName} as the lead stack choice and confirm cost assumptions.`);
   }
 
   if (result.readinessLevel === "medium" || result.readinessLevel === "low") {
@@ -121,7 +143,26 @@ function buildRecommendedNextSteps(result: { readinessLevel: ReadinessLevel; ris
     steps.push("Review the recommended stack and security baseline, then move into operator validation and scenario comparison.");
   }
 
-  return unique(steps).slice(0, 4);
+  return unique(steps).slice(0, 5);
+}
+
+function buildLaunchBlockers(missingInformation: UnifiedRecommendationResult["missingInformation"], detailedBreakdown: RecommendationPreviewResponse["detailedBreakdown"]) {
+  return unique([
+    ...missingInformation.missingSections.map((section) => `Missing section: ${section}`),
+    ...detailedBreakdown.pricingReadiness.data.riskFlags,
+    ...detailedBreakdown.packageCompleteness.data.missingCapabilities.map((capability) => `Missing capability: ${capability}`),
+    ...detailedBreakdown.packageCompleteness.data.packageRisks,
+    ...detailedBreakdown.stackFit.data.coverageGaps
+  ]).slice(0, 6);
+}
+
+function buildLaunchAccelerators(detailedBreakdown: RecommendationPreviewResponse["detailedBreakdown"]) {
+  return unique([
+    ...detailedBreakdown.pricingReadiness.positiveSignals,
+    ...detailedBreakdown.packageCompleteness.positiveSignals,
+    ...detailedBreakdown.stackFit.data.topChoices.slice(0, 2).map((choice) => `${choice.vendorName} is a strong stack candidate for the current offer.`),
+    ...detailedBreakdown.securityBaseline.positiveSignals
+  ]).slice(0, 6);
 }
 
 export function aggregateRecommendation(
@@ -162,7 +203,14 @@ export function aggregateRecommendation(
     ...detailedBreakdown.packageCompleteness.reasons,
     ...detailedBreakdown.stackFit.reasons,
     ...detailedBreakdown.securityBaseline.reasons
-  ]).slice(0, 8);
+  ]).slice(0, 10);
+
+  const explanationItems = uniqueExplanationItems([
+    ...detailedBreakdown.pricingReadiness.explanationItems,
+    ...detailedBreakdown.packageCompleteness.explanationItems,
+    ...detailedBreakdown.stackFit.explanationItems,
+    ...detailedBreakdown.securityBaseline.explanationItems
+  ]);
 
   const missingInformation = buildMissingInformation(context, detailedBreakdown);
 
@@ -192,7 +240,7 @@ export function aggregateRecommendation(
           ? "Promising MSP/MSSP design with meaningful gaps that should be addressed before launch."
           : "Early-stage recommendation profile with significant gaps in pricing, package design, or baseline readiness.";
 
-  const result: UnifiedRecommendationResult = {
+  const baseResult: UnifiedRecommendationResult = {
     overallScore: missingInformation.hasBlockingGaps ? Math.min(weightedScore, 49) : weightedScore,
     readinessLevel,
     riskLevel,
@@ -208,16 +256,43 @@ export function aggregateRecommendation(
       reasons,
       contributingFactors,
       positiveSignals,
-      negativeSignals
+      negativeSignals,
+      items: explanationItems
     },
     missingInformation,
+    launchSummary: "",
+    launchBlockers: [],
+    launchAccelerators: [],
     topActionItems: buildTopActionItems(detailedBreakdown),
-    recommendedNextSteps: []
+    recommendedNextSteps: [],
+    nextThreeActions: []
   };
 
-  result.recommendedNextSteps = buildRecommendedNextSteps(result);
+  baseResult.recommendedNextSteps = buildRecommendedNextSteps(baseResult, detailedBreakdown);
+  baseResult.nextThreeActions = baseResult.recommendedNextSteps.slice(0, 3);
+  baseResult.launchBlockers = buildLaunchBlockers(baseResult.missingInformation, detailedBreakdown);
+  baseResult.launchAccelerators = buildLaunchAccelerators(detailedBreakdown);
+  baseResult.launchSummary = baseResult.launchBlockers.length > 0
+    ? `Launch readiness is constrained by ${baseResult.launchBlockers.length} blocker(s) that should be resolved before customer-facing rollout.`
+    : `Launch readiness is supported by a coherent offer design, stack shortlist, and baseline posture with ${baseResult.launchAccelerators.length} notable accelerator(s).`;
 
-  return result;
+  baseResult.explainability.items = uniqueExplanationItems([
+    ...baseResult.explainability.items,
+    ...baseResult.launchBlockers.map((item) => ({
+      category: "launch",
+      impact: "negative" as const,
+      message: item,
+      recommendedAction: "Resolve this blocker before launch or clearly reduce the promise of the offer."
+    })),
+    ...baseResult.launchAccelerators.map((item) => ({
+      category: "launch",
+      impact: "positive" as const,
+      message: item,
+      recommendedAction: "Use this strength in operator review, packaging, and go-to-market positioning."
+    }))
+  ]);
+
+  return baseResult;
 }
 
 export function evaluateRecommendationPreview(

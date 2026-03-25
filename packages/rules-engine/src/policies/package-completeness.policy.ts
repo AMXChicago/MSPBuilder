@@ -1,4 +1,4 @@
-import type { PackageCompletenessOutput, RecommendationContext, RecommendationPolicy } from "../core/types";
+import type { PackageCompletenessOutput, RecommendationContext, RecommendationPolicy, ExplanationItem } from "../core/types";
 import { clampConfidence, clampScore, detectVerticals, hasDangerousExclusion, inferServiceCapabilities, isSecurityLedContext } from "../core/scoring";
 
 export const packageCompletenessPolicy: RecommendationPolicy<PackageCompletenessOutput> = {
@@ -16,6 +16,7 @@ export const packageCompletenessPolicy: RecommendationPolicy<PackageCompleteness
     ];
     const positiveSignals: string[] = [];
     const negativeSignals: string[] = [];
+    const explanationItems: ExplanationItem[] = [];
     const capabilities = inferServiceCapabilities(context.servicePackage.items);
     const verticals = detectVerticals(context.businessModel.targetVerticals);
     const needsBackup = context.constraints.complianceSensitivity === "high" || verticals.healthcare || verticals.finance || context.servicePackage.includesSecurityBaseline;
@@ -27,16 +28,34 @@ export const packageCompletenessPolicy: RecommendationPolicy<PackageCompleteness
     if ((context.businessModel.businessType === "msp" || context.businessModel.businessType === "co-managed") && !capabilities.helpdesk) {
       missingCapabilities.push("helpdesk-coverage");
       negativeSignals.push("MSP-oriented package lacks clear helpdesk or support coverage.");
+      explanationItems.push({
+        category: "package",
+        impact: "negative",
+        message: "MSP-oriented offer is missing clear helpdesk coverage.",
+        recommendedAction: "Add helpdesk or frontline support coverage before launch."
+      });
     }
 
     if (isSecurityLedContext(context) && !capabilities.security) {
       missingCapabilities.push("security-coverage");
       negativeSignals.push("Security-led context lacks explicit security service coverage.");
+      explanationItems.push({
+        category: "package",
+        impact: "negative",
+        message: "Security-led business posture is not matched by explicit security package content.",
+        recommendedAction: "Add MDR, EDR, identity hardening, or similar security coverage."
+      });
     }
 
     if (needsBackup && !capabilities.backup) {
       missingCapabilities.push("backup-continuity-coverage");
       negativeSignals.push("Continuity expectations require backup coverage that is not present.");
+      explanationItems.push({
+        category: "package",
+        impact: "warning",
+        message: "Continuity expectations are high, but backup or continuity coverage is missing.",
+        recommendedAction: "Add backup monitoring or restore-validation coverage to the package."
+      });
     }
 
     if (context.servicePackage.defaultSlaTier === "24x7" && context.servicePackage.defaultSupportHours !== "24x7") {
@@ -64,6 +83,15 @@ export const packageCompletenessPolicy: RecommendationPolicy<PackageCompleteness
       negativeSignals.push("Critical service expectations are inconsistent with support availability.");
     }
 
+    for (const risk of packageRisks) {
+      explanationItems.push({
+        category: "package",
+        impact: "warning",
+        message: risk,
+        recommendedAction: "Tighten SLA, support-hour, and exclusion wording so delivery promises stay credible."
+      });
+    }
+
     if (context.constraints.deliveryModel === "onsite") {
       packageNotes.push("Onsite delivery models may need explicit field-service or dispatch workflows in later iterations.");
     }
@@ -71,6 +99,12 @@ export const packageCompletenessPolicy: RecommendationPolicy<PackageCompleteness
     if (context.businessModel.businessType === "co-managed") {
       packageNotes.push("Co-managed offers should clearly distinguish provider-owned vs client-owned responsibilities.");
       positiveSignals.push("Co-managed posture is recognized for package review and future responsibility modeling.");
+      explanationItems.push({
+        category: "package",
+        impact: "neutral",
+        message: "Co-managed delivery requires clear provider-owned versus client-owned responsibilities.",
+        recommendedAction: "Document shared-responsibility boundaries before onboarding clients."
+      });
     }
 
     const score = clampScore(100 - missingCapabilities.length * 18 - packageRisks.length * 12 + context.servicePackage.items.length * 2 + positiveSignals.length * 2);
@@ -93,6 +127,7 @@ export const packageCompletenessPolicy: RecommendationPolicy<PackageCompleteness
         contributingFactors,
         positiveSignals,
         negativeSignals,
+        explanationItems,
         data: {
           isComplete,
           missingCapabilities,

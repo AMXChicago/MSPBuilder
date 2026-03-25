@@ -31,6 +31,16 @@ export interface SecurityBaselineOption {
   label: string;
 }
 
+export type ExplanationCategory = "pricing" | "package" | "stack" | "security" | "launch";
+export type ExplanationImpact = "positive" | "negative" | "warning" | "neutral";
+
+export interface ExplanationItem {
+  category: ExplanationCategory;
+  impact: ExplanationImpact;
+  message: string;
+  recommendedAction?: string;
+}
+
 export interface RecommendationResult<TData> {
   code: string;
   family: RecommendationFamily;
@@ -41,6 +51,7 @@ export interface RecommendationResult<TData> {
   contributingFactors: string[];
   positiveSignals: string[];
   negativeSignals: string[];
+  explanationItems: ExplanationItem[];
   data: TData;
 }
 
@@ -67,6 +78,7 @@ export interface RecommendationAggregateExplainability {
   contributingFactors: string[];
   positiveSignals: string[];
   negativeSignals: string[];
+  items: ExplanationItem[];
 }
 
 export interface PricingReadinessOutput {
@@ -94,13 +106,29 @@ export interface VendorScoreBreakdown {
   complianceFit: number;
   packageAlignment: number;
   budgetAlignment: number;
+  deliveryFit: number;
+  pricingFit: number;
+  founderFit: number;
   reasons: string[];
+  tradeoffs: string[];
+}
+
+export interface StackRecommendationChoice {
+  vendorId: string;
+  vendorName: string;
+  score: number;
+  summary: string;
+  whyFit: string[];
+  tradeoffs: string[];
+  recommendedFor: string[];
 }
 
 export interface StackFitOutput {
   suggestedVendorIds: string[];
   fitNotes: string[];
   scoreBreakdown: VendorScoreBreakdown[];
+  topChoices: StackRecommendationChoice[];
+  coverageGaps: string[];
 }
 
 export interface SecurityBaselineSelectionOutput {
@@ -128,8 +156,12 @@ export interface UnifiedRecommendationResult {
   securityBaselineSummary: RecommendationResult<SecurityBaselineSelectionOutput>;
   explainability: RecommendationAggregateExplainability;
   missingInformation: RecommendationMissingInformation;
+  launchSummary: string;
+  launchBlockers: string[];
+  launchAccelerators: string[];
   topActionItems: string[];
   recommendedNextSteps: string[];
+  nextThreeActions: string[];
 }
 
 export interface RecommendationPreviewResponse {

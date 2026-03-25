@@ -5,11 +5,19 @@ import Link from "next/link";
 import { WorkflowShell } from "../../components/workflow/workflow-shell";
 import { API_BASE_URL, getJson } from "../../lib/launch-os";
 
+interface ExplanationItem {
+  category: "pricing" | "package" | "stack" | "security" | "launch";
+  impact: "positive" | "negative" | "warning" | "neutral";
+  message: string;
+  recommendedAction?: string;
+}
+
 interface PolicyBreakdown {
   summary: string;
   reasons: string[];
   positiveSignals: string[];
   negativeSignals: string[];
+  explanationItems: ExplanationItem[];
 }
 
 interface RecommendationPreviewData {
@@ -24,11 +32,15 @@ interface RecommendationPreviewData {
     riskLevel: "low" | "medium" | "high";
     confidenceLevel: "low" | "medium" | "high";
     confidenceScore: number;
+    launchSummary: string;
+    launchBlockers: string[];
+    launchAccelerators: string[];
     explainability: {
       summary: string;
       reasons: string[];
       positiveSignals: string[];
       negativeSignals: string[];
+      items: ExplanationItem[];
     };
     missingInformation: {
       missingSections: string[];
@@ -37,10 +49,21 @@ interface RecommendationPreviewData {
     };
     topActionItems: string[];
     recommendedNextSteps: string[];
+    nextThreeActions: string[];
     stackFitSummary: {
       data: {
-        scoreBreakdown: Array<{ vendorId: string; vendorName: string }>;
+        scoreBreakdown: Array<{ vendorId: string; vendorName: string; totalScore: number; tradeoffs: string[] }>;
         fitNotes: string[];
+        topChoices: Array<{
+          vendorId: string;
+          vendorName: string;
+          score: number;
+          summary: string;
+          whyFit: string[];
+          tradeoffs: string[];
+          recommendedFor: string[];
+        }>;
+        coverageGaps: string[];
       };
     };
     securityBaselineSummary: {
@@ -93,12 +116,13 @@ export default function RecommendationPage() {
       {!isLoading && !error && data ? (
         <div style={{ display: "grid", gap: 16 }}>
           <section>
-            <h2>Result</h2>
+            <h2>Launch Readiness</h2>
             <p><strong>Overall score:</strong> {data.result.overallScore}</p>
             <p><strong>Readiness level:</strong> {data.result.readinessLevel}</p>
             <p><strong>Risk level:</strong> {data.result.riskLevel}</p>
             <p><strong>Confidence:</strong> {data.result.confidenceLevel} ({data.result.confidenceScore})</p>
             <p><strong>Summary:</strong> {data.result.explainability.summary}</p>
+            <p><strong>Launch interpretation:</strong> {data.result.launchSummary}</p>
           </section>
 
           {data.result.missingInformation.missingSections.length > 0 ? (
@@ -111,26 +135,45 @@ export default function RecommendationPage() {
           ) : null}
 
           <section>
-            <h2>Reasons</h2>
-            <ul>{data.result.explainability.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+            <h2>Top Stack Choices</h2>
+            {data.result.stackFitSummary.data.topChoices.length === 0 ? <p>No stack choices available yet.</p> : null}
+            {data.result.stackFitSummary.data.topChoices.map((choice) => (
+              <article key={choice.vendorId} style={{ border: "1px solid #ccc", padding: 12, marginBottom: 12 }}>
+                <p><strong>{choice.vendorName}</strong> ({choice.score}/100)</p>
+                <p>{choice.summary}</p>
+                <p><strong>Why it fits</strong></p>
+                <ul>{choice.whyFit.map((item) => <li key={item}>{item}</li>)}</ul>
+                <p><strong>Tradeoffs</strong></p>
+                <ul>{choice.tradeoffs.map((item) => <li key={item}>{item}</li>)}</ul>
+                <p><strong>Recommended for</strong></p>
+                <ul>{choice.recommendedFor.map((item) => <li key={item}>{item}</li>)}</ul>
+              </article>
+            ))}
           </section>
 
           <section>
-            <h2>Top Action Items</h2>
-            <ul>{data.result.topActionItems.map((item) => <li key={item}>{item}</li>)}</ul>
+            <h2>What Is Missing Before Launch</h2>
+            <ul>{data.result.launchBlockers.map((item) => <li key={item}>{item}</li>)}</ul>
+            {data.result.stackFitSummary.data.coverageGaps.length > 0 ? <ul>{data.result.stackFitSummary.data.coverageGaps.map((item) => <li key={item}>{item}</li>)}</ul> : null}
           </section>
 
           <section>
-            <h2>Recommended Next Steps</h2>
-            <ul>{data.result.recommendedNextSteps.map((step) => <li key={step}>{step}</li>)}</ul>
+            <h2>Launch Accelerators</h2>
+            <ul>{data.result.launchAccelerators.map((item) => <li key={item}>{item}</li>)}</ul>
           </section>
 
           <section>
-            <h2>Key Recommendations</h2>
-            <p><strong>Suggested vendors:</strong> {data.result.stackFitSummary.data.scoreBreakdown.map((vendor) => vendor.vendorName).join(", ") || "None yet"}</p>
-            <ul>{data.result.stackFitSummary.data.fitNotes.map((note) => <li key={note}>{note}</li>)}</ul>
-            <p><strong>Suggested baselines:</strong> {data.result.securityBaselineSummary.data.suggestedBaselineCodes.join(", ") || "None yet"}</p>
-            <ul>{data.result.securityBaselineSummary.data.rationale.map((item) => <li key={item}>{item}</li>)}</ul>
+            <h2>Highest-Priority Next Actions</h2>
+            <ul>{data.result.nextThreeActions.map((step) => <li key={step}>{step}</li>)}</ul>
+          </section>
+
+          <section>
+            <h2>Structured Explainability</h2>
+            <ExplainabilityGroup title="Pricing" items={data.result.explainability.items.filter((item) => item.category === "pricing")} />
+            <ExplainabilityGroup title="Package" items={data.result.explainability.items.filter((item) => item.category === "package")} />
+            <ExplainabilityGroup title="Stack" items={data.result.explainability.items.filter((item) => item.category === "stack")} />
+            <ExplainabilityGroup title="Security" items={data.result.explainability.items.filter((item) => item.category === "security")} />
+            <ExplainabilityGroup title="Launch" items={data.result.explainability.items.filter((item) => item.category === "launch")} />
           </section>
 
           <section>
@@ -157,6 +200,21 @@ export default function RecommendationPage() {
         </div>
       ) : null}
     </WorkflowShell>
+  );
+}
+
+function ExplainabilityGroup({ title, items }: { title: string; items: ExplanationItem[] }) {
+  return (
+    <article>
+      <h3>{title}</h3>
+      {items.length === 0 ? <p>No notable items.</p> : null}
+      {items.map((item, index) => (
+        <div key={`${item.category}-${item.message}-${index}`} style={{ marginBottom: 10 }}>
+          <p><strong>{item.impact}</strong>: {item.message}</p>
+          {item.recommendedAction ? <p><strong>Recommended action:</strong> {item.recommendedAction}</p> : null}
+        </div>
+      ))}
+    </article>
   );
 }
 
