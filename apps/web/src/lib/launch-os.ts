@@ -1,5 +1,18 @@
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 
+export interface ApiSuccessResponse<T> {
+  ok: true;
+  data: T;
+}
+
+export interface ApiErrorShape {
+  ok: false;
+  error: {
+    message: string;
+    code: string;
+  };
+}
+
 export interface WorkflowStateResponse {
   tenant: {
     organizationId: string;
@@ -62,6 +75,9 @@ export interface WorkflowStateResponse {
     floorMarginPercent: number;
     effectiveMarginPercent?: number;
   } | null;
+  latestRecommendation: {
+    summary: string;
+  } | null;
   referenceData: {
     serviceDefinitions: Array<{
       id: string;
@@ -71,20 +87,26 @@ export interface WorkflowStateResponse {
   };
 }
 
-export async function postJson<TResponse>(path: string, payload: unknown): Promise<TResponse> {
+async function parseApiResponse<T>(response: Response): Promise<T> {
+  const payload = (await response.json()) as ApiSuccessResponse<T> | ApiErrorShape;
+
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.ok === false ? payload.error.message : `Request failed with status ${response.status}`);
+  }
+
+  return payload.data;
+}
+
+export async function saveJson<TResponse>(path: string, payload: unknown, method: "POST" | "PUT" = "POST"): Promise<TResponse> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: "POST",
+    method,
     headers: {
       "Content-Type": "application/json"
     },
     body: JSON.stringify(payload)
   });
 
-  if (!response.ok) {
-    throw new Error((await response.text()) || `Request failed with status ${response.status}`);
-  }
-
-  return (await response.json()) as TResponse;
+  return parseApiResponse<TResponse>(response);
 }
 
 export async function getJson<TResponse>(path: string): Promise<TResponse> {
@@ -96,16 +118,11 @@ export async function getJson<TResponse>(path: string): Promise<TResponse> {
     cache: "no-store"
   });
 
-  if (!response.ok) {
-    throw new Error((await response.text()) || `Request failed with status ${response.status}`);
-  }
-
-  return (await response.json()) as TResponse;
+  return parseApiResponse<TResponse>(response);
 }
 
 export async function getWorkflowState() {
-  const response = await getJson<{ data: WorkflowStateResponse }>("/workflow/state");
-  return response.data;
+  return getJson<WorkflowStateResponse>("/workflow/state");
 }
 
 export function splitCommaSeparatedList(value: string) {

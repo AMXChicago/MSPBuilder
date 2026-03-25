@@ -1,72 +1,56 @@
 # User Flows
 
-## Primary MVP Flow
-1. User opens the workflow at `/founder`.
-2. Web loads saved tenant-scoped state from `GET /workflow/state`.
-3. User submits a founder profile to `POST /founder` or `PUT /founder`.
-4. User continues to `/business-model` and submits MSP/MSSP posture inputs to `POST /business-model` or `PUT /business-model`.
-5. User continues to `/service-package`, loads tenant service definitions from workflow state, and submits package composition to `POST /service-package` or `PUT /service-package`.
-6. User continues to `/pricing` and submits pricing inputs to `POST /pricing` or `PUT /pricing`.
-7. User reaches `/recommendation`, which calls `GET /recommendation/preview`.
-8. API loads persisted workflow records, builds a versioned recommendation scenario, runs the rules engine, persists the recommendation result, and returns the preview.
-9. UI renders the unified recommendation result plus grouped explainability by pricing, package, stack, and security.
-10. Refreshing any workflow page reloads saved state from persistence rather than losing progress.
+## Persisted Founder Workflow
+1. Operator starts at `/founder`.
+2. Page loads the saved tenant workflow state from `GET /workflow/state`.
+3. Founder profile is saved with `POST /founder` or `PUT /founder`.
+4. Business model is saved with `POST /business-model` or `PUT /business-model`.
+5. Service package is saved with `POST /service-package` or `PUT /service-package`.
+6. Pricing is saved with `POST /pricing` or `PUT /pricing`.
+7. Recommendation page calls `GET /recommendation/preview`.
+8. API rebuilds preview output from persisted records, persists the scenario/result, and returns the latest explainable recommendation.
 
-## Full MVP Input-to-Recommendation Flow
-This first persisted workflow validates that the product can take real MSP/MSSP inputs, save them as tenant-scoped business records, and generate explainable recommendation output from centralized rules and persisted scenarios.
+## Operator Testing Goals
+This flow is now designed for real internal testing, not just architecture validation.
 
-### Step 1: Founder Profile
-- Captures operator background, motion, confidence, and technical depth.
-- Saves a tenant-scoped founder record.
-- Reloads on refresh from persisted state.
+What should work reliably:
+- each step reloads previously saved state
+- saves update existing tenant records cleanly
+- refresh does not lose progress
+- back and forward navigation preserve the saved workflow record set
+- recommendation preview always reflects the latest saved backend state
 
-### Step 2: Business Model
-- Captures business type, target verticals, target company sizes, delivery model, compliance sensitivity, budget positioning, and founder maturity.
-- Defines the commercial posture that recommendation policies optimize around.
-- Saves a tenant-scoped business model record.
+## Recommendation Preview Behavior
+Recommendation output now emphasizes operator readability.
 
-### Step 3: Service Package
-- Loads tenant service definitions from the backend.
-- Captures package shell details and selected service-definition relationships.
-- Saves the service package and its package items with real relational IDs.
-
-### Step 4: Pricing
-- Loads the current saved service package from the backend.
-- Captures pricing unit, quantity structure, overage handling, billing frequency, term, passthrough cost, and margin expectations.
-- Saves pricing aligned to the persisted service package.
-
-### Step 5: Recommendation Preview
-- Calls a thin API endpoint rather than UI-side scoring logic.
-- Builds recommendation context from persisted workflow records plus tenant reference data.
-- Persists `RecommendationScenario`, `RecommendationResultRecord`, and stack-fit output linkage.
-- Returns normalized context, unified result, and detailed policy breakdown.
-
-## Tenant Behavior In MVP
-- Every workflow request resolves a tenant context.
-- In local development, a bootstrap organization and user are created automatically when auth context is absent.
-- Real auth will later replace this fallback with membership-backed tenant resolution.
-
-## Explainability Behavior
-The recommendation page groups policy output into four sections:
-- pricing
-- package
-- stack
-- security
-
-Each group shows:
-- summary
-- reasons
-- positive signals
-- negative signals
-
-The aggregate result also shows:
+The page shows:
 - overall score
 - readiness level
 - risk level
-- top-level summary
-- top-level reasons
+- confidence level and score
+- summary
+- missing-information warnings when the workflow is incomplete
+- grouped reasons by pricing, package, stack, and security
+- top action items
+- recommended next steps
 
-## Workflow Boundaries
-- This MVP flow now uses persisted API-backed state rather than in-memory workflow storage.
-- It is intended to validate durable tenant-aware recommendation behavior before polished UX and full auth are added.
-- The UI still does not contain recommendation logic. It only loads state, posts inputs, and renders response data.
+## Missing Information Handling
+If key workflow inputs are incomplete or inconsistent, the preview now:
+- lists missing sections
+- shows warning messages
+- lowers confidence
+- prevents the summary from sounding falsely launch-ready
+
+This is important because internal operators need to know when the preview is incomplete versus when the business design is genuinely weak.
+
+## Tenant-Aware Flow Behavior
+- Every request resolves a tenant context.
+- Tenant context can come from headers or a local development bootstrap fallback.
+- All saved records belong to one organization.
+- Workflow state and recommendation preview are always loaded for the active tenant only.
+
+## Known Limitations
+- The current UX is intentionally plain and does not yet include production-ready operator ergonomics.
+- Auth-backed tenant resolution is not integrated yet.
+- Recommendation history views and scenario comparison are still pending.
+- Vendor suggestions are explainable, but the current UI still keeps the presentation minimal.

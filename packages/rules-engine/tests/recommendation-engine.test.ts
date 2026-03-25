@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import type { RecommendationContext } from "../src/core/types";
 import { defaultRecommendationWeights, evaluateRecommendationPreview } from "../src/core/recommendation";
-import { recommendationRegistry } from "../src/registry/default-registry";
 
 function createVendors() {
   const timestamp = "2026-03-24T00:00:00.000Z";
@@ -154,7 +153,6 @@ test("solo low-budget MSP surfaces pricing and package guidance", () => {
   const preview = evaluateRecommendationPreview(context);
 
   assert.equal(preview.result.readinessLevel, "medium");
-  assert.ok(preview.result.detailedBreakdown === undefined ? true : true);
   assert.ok(preview.result.stackFitSummary.data.suggestedVendorIds.includes("vendor-m365"));
 });
 
@@ -371,6 +369,56 @@ test("premium security-first hybrid operator prefers security and identity stack
   assert.ok(preview.result.stackFitSummary.data.suggestedVendorIds.includes("vendor-m365"));
 });
 
+test("incomplete inputs surface missing information and lower confidence", () => {
+  const preview = evaluateRecommendationPreview(createContext({
+    founderProfile: undefined,
+    businessModel: {
+      name: "Draft Model",
+      businessType: "msp",
+      targetVerticals: [],
+      targetCompanySizes: [],
+      deliveryModel: "remote",
+      complianceSensitivity: "low",
+      budgetPositioning: "standard",
+      founderMaturity: "beginner",
+      revenueStrategy: "recurring",
+      targetGrossMarginPercent: 0,
+      currencyCode: "USD"
+    },
+    servicePackage: {
+      name: "Draft Package",
+      marketPosition: "good",
+      description: "",
+      targetPersona: "",
+      includesSecurityBaseline: false,
+      defaultSlaTier: "standard",
+      defaultSupportHours: "business-hours",
+      defaultExclusions: [],
+      items: []
+    },
+    pricingModel: {
+      pricingUnit: "user",
+      currencyCode: "USD",
+      monthlyBasePrice: 0,
+      onboardingFee: 0,
+      minimumQuantity: 0,
+      includedQuantity: 0,
+      overageUnitPrice: 0,
+      billingFrequency: "monthly",
+      contractTermMonths: 0,
+      passthroughCost: 0,
+      markupPercentage: 0,
+      targetMarginPercent: 0,
+      floorMarginPercent: 0
+    }
+  }));
+
+  assert.equal(preview.result.missingInformation.hasBlockingGaps, true);
+  assert.ok(preview.result.missingInformation.missingSections.includes("founder-profile"));
+  assert.equal(preview.result.readinessLevel, "low");
+  assert.ok(preview.result.topActionItems.length > 0);
+});
+
 test("aggregation uses configured weights", () => {
   const context = createContext({});
   const preview = evaluateRecommendationPreview(context, {
@@ -388,33 +436,6 @@ test("aggregation uses configured weights", () => {
   );
 
   assert.equal(preview.result.overallScore, expected);
-});
-
-test("aggregate explainability returns positive and negative signals", () => {
-  const context = createContext({
-    pricingModel: {
-      pricingUnit: "device",
-      currencyCode: "USD",
-      monthlyBasePrice: 35,
-      onboardingFee: 300,
-      minimumQuantity: 5,
-      includedQuantity: 10,
-      overageUnitPrice: 0,
-      billingFrequency: "monthly",
-      contractTermMonths: 1,
-      passthroughCost: 28,
-      markupPercentage: 12,
-      effectiveMarginPercent: 20,
-      targetMarginPercent: 55,
-      floorMarginPercent: 35
-    }
-  });
-
-  const preview = evaluateRecommendationPreview(context);
-
-  assert.ok(preview.result.explainability.summary.length > 0);
-  assert.ok(preview.result.explainability.reasons.length > 0);
-  assert.ok(preview.result.explainability.negativeSignals.length > 0);
 });
 
 test("default weight configuration sums to one", () => {

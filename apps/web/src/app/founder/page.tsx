@@ -4,7 +4,7 @@ import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { WorkflowShell } from "../../components/workflow/workflow-shell";
-import { getWorkflowState, postJson } from "../../lib/launch-os";
+import { getWorkflowState, saveJson } from "../../lib/launch-os";
 
 interface FounderDraft {
   id?: string;
@@ -36,6 +36,7 @@ export default function FounderPage() {
   const [draft, setDraft] = useState<FounderDraft>(defaultDraft);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [hasSavedState, setHasSavedState] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,6 +45,7 @@ export default function FounderPage() {
         const state = await getWorkflowState();
         if (state.founderProfile) {
           setDraft(state.founderProfile);
+          setHasSavedState(true);
         }
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Unable to load founder profile.");
@@ -65,7 +67,9 @@ export default function FounderPage() {
     setError(null);
 
     try {
-      await postJson<{ data: FounderDraft & { id: string } }>("/founder", draft);
+      const saved = await saveJson<FounderDraft & { id: string }>("/founder", draft, draft.id ? "PUT" : "POST");
+      setDraft(saved);
+      setHasSavedState(true);
       router.push("/business-model");
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to save founder profile.");
@@ -75,7 +79,12 @@ export default function FounderPage() {
   }
 
   return (
-    <WorkflowShell currentStep="Founder" title="Founder Profile" description="Capture the operator context that will shape recommendations.">
+    <WorkflowShell
+      currentStep="Founder"
+      title="Founder Profile"
+      description="Capture the operator context that will shape recommendations."
+      savedStateLabel={hasSavedState ? "Saved founder profile loaded. Updates will overwrite the current tenant-scoped record." : undefined}
+    >
       {isLoading ? <p>Loading founder profile...</p> : null}
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
         <label>Full name<input value={draft.fullName} onChange={(event) => update("fullName", event.target.value)} required /></label>
@@ -88,7 +97,7 @@ export default function FounderPage() {
         <label>Technical depth (1-10)<input type="number" min={1} max={10} value={draft.technicalDepth} onChange={(event) => update("technicalDepth", Number(event.target.value))} required /></label>
         <label>Engagement model<select value={draft.preferredEngagementModel} onChange={(event) => update("preferredEngagementModel", event.target.value as FounderDraft["preferredEngagementModel"])}><option value="fractional-founder">Fractional founder</option><option value="owner-operator">Owner-operator</option><option value="team-led">Team-led</option></select></label>
         {error ? <p role="alert">{error}</p> : null}
-        <button type="submit" disabled={isSaving || isLoading}>{isSaving ? "Saving..." : "Save and continue"}</button>
+        <button type="submit" disabled={isSaving || isLoading}>{isSaving ? "Saving..." : draft.id ? "Save changes and continue" : "Save and continue"}</button>
       </form>
     </WorkflowShell>
   );

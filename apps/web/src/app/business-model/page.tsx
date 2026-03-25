@@ -4,7 +4,7 @@ import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { WorkflowShell } from "../../components/workflow/workflow-shell";
-import { getWorkflowState, postJson, splitCommaSeparatedList } from "../../lib/launch-os";
+import { getWorkflowState, saveJson, splitCommaSeparatedList } from "../../lib/launch-os";
 
 interface BusinessModelDraft {
   id?: string;
@@ -38,6 +38,7 @@ export default function BusinessModelPage() {
   const [draft, setDraft] = useState<BusinessModelDraft>(defaultDraft);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [hasSavedState, setHasSavedState] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,6 +59,7 @@ export default function BusinessModelPage() {
             revenueStrategy: state.businessModel.revenueStrategy,
             targetGrossMarginPercent: state.businessModel.targetGrossMarginPercent
           });
+          setHasSavedState(true);
         }
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Unable to load business model.");
@@ -79,7 +81,7 @@ export default function BusinessModelPage() {
     setError(null);
 
     try {
-      await postJson("/business-model", {
+      const saved = await saveJson<{ id: string }>("/business-model", {
         id: draft.id,
         name: draft.name,
         businessType: draft.businessType,
@@ -93,7 +95,9 @@ export default function BusinessModelPage() {
         targetGrossMarginPercent: draft.targetGrossMarginPercent,
         currencyCode: "USD",
         status: "draft"
-      });
+      }, draft.id ? "PUT" : "POST");
+      setDraft((current) => ({ ...current, id: saved.id }));
+      setHasSavedState(true);
       router.push("/service-package");
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to save business model.");
@@ -103,7 +107,12 @@ export default function BusinessModelPage() {
   }
 
   return (
-    <WorkflowShell currentStep="Business Model" title="Business Model" description="Define the MSP/MSSP posture that recommendation policies should optimize for.">
+    <WorkflowShell
+      currentStep="Business Model"
+      title="Business Model"
+      description="Define the MSP/MSSP posture that recommendation policies should optimize for."
+      savedStateLabel={hasSavedState ? "Saved business model loaded. Updates will overwrite the current tenant-scoped record." : undefined}
+    >
       {isLoading ? <p>Loading business model...</p> : null}
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
         <label>Model name<input value={draft.name} onChange={(event) => update("name", event.target.value)} required /></label>
@@ -117,7 +126,7 @@ export default function BusinessModelPage() {
         <label>Revenue strategy<select value={draft.revenueStrategy} onChange={(event) => update("revenueStrategy", event.target.value as BusinessModelDraft["revenueStrategy"])}><option value="recurring">Recurring</option><option value="hybrid">Hybrid</option><option value="project-first">Project-first</option></select></label>
         <label>Target gross margin percent<input type="number" min={0} max={100} value={draft.targetGrossMarginPercent} onChange={(event) => update("targetGrossMarginPercent", Number(event.target.value))} required /></label>
         {error ? <p role="alert">{error}</p> : null}
-        <button type="submit" disabled={isSaving || isLoading}>{isSaving ? "Saving..." : "Save and continue"}</button>
+        <button type="submit" disabled={isSaving || isLoading}>{isSaving ? "Saving..." : draft.id ? "Save changes and continue" : "Save and continue"}</button>
       </form>
     </WorkflowShell>
   );

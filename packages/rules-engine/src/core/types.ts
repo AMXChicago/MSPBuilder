@@ -109,6 +109,12 @@ export interface SecurityBaselineSelectionOutput {
   priorityLevel: "standard" | "high" | "critical";
 }
 
+export interface RecommendationMissingInformation {
+  missingSections: string[];
+  warnings: string[];
+  hasBlockingGaps: boolean;
+}
+
 export interface UnifiedRecommendationResult {
   overallScore: number;
   readinessLevel: ReadinessLevel;
@@ -121,6 +127,9 @@ export interface UnifiedRecommendationResult {
   stackFitSummary: RecommendationResult<StackFitOutput>;
   securityBaselineSummary: RecommendationResult<SecurityBaselineSelectionOutput>;
   explainability: RecommendationAggregateExplainability;
+  missingInformation: RecommendationMissingInformation;
+  topActionItems: string[];
+  recommendedNextSteps: string[];
 }
 
 export interface RecommendationPreviewResponse {

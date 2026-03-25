@@ -4,7 +4,7 @@ import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { WorkflowShell } from "../../components/workflow/workflow-shell";
-import { getWorkflowState, postJson } from "../../lib/launch-os";
+import { getWorkflowState, saveJson } from "../../lib/launch-os";
 
 interface PricingDraft {
   id?: string;
@@ -44,6 +44,7 @@ export default function PricingPage() {
   const [packageName, setPackageName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [hasSavedState, setHasSavedState] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -68,6 +69,7 @@ export default function PricingPage() {
             targetMarginPercent: state.pricingModel.targetMarginPercent,
             floorMarginPercent: state.pricingModel.floorMarginPercent
           });
+          setHasSavedState(true);
         } else if (state.servicePackage) {
           setDraft((current) => ({ ...current, servicePackageId: state.servicePackage?.id }));
         }
@@ -101,12 +103,14 @@ export default function PricingPage() {
       : 0;
 
     try {
-      await postJson("/pricing", {
+      const saved = await saveJson<{ id: string }>("/pricing", {
         ...draft,
         servicePackageId: draft.servicePackageId,
         currencyCode: "USD",
         effectiveMarginPercent
-      });
+      }, draft.id ? "PUT" : "POST");
+      setDraft((current) => ({ ...current, id: saved.id }));
+      setHasSavedState(true);
       router.push("/recommendation");
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to save pricing.");
@@ -116,9 +120,14 @@ export default function PricingPage() {
   }
 
   return (
-    <WorkflowShell currentStep="Pricing" title="Pricing" description="Enter pricing inputs so the recommendation engine can assess commercial readiness.">
+    <WorkflowShell
+      currentStep="Pricing"
+      title="Pricing"
+      description="Enter pricing inputs so the recommendation engine can assess commercial readiness."
+      savedStateLabel={hasSavedState ? "Saved pricing model loaded. Updates will overwrite the current tenant-scoped record." : undefined}
+    >
       {isLoading ? <p>Loading pricing state...</p> : null}
-      {packageName ? <p>Active service package: {packageName}</p> : null}
+      {packageName ? <p>Active service package: {packageName}</p> : <p>Pricing requires a saved service package first.</p>}
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
         <label>Pricing unit<select value={draft.pricingUnit} onChange={(event) => update("pricingUnit", event.target.value as PricingDraft["pricingUnit"])}><option value="user">User</option><option value="device">Device</option><option value="hybrid">Hybrid</option></select></label>
         <label>Monthly base price<input type="number" min={0} value={draft.monthlyBasePrice} onChange={(event) => update("monthlyBasePrice", Number(event.target.value))} required /></label>
@@ -133,7 +142,7 @@ export default function PricingPage() {
         <label>Target margin percent<input type="number" min={0} max={100} value={draft.targetMarginPercent} onChange={(event) => update("targetMarginPercent", Number(event.target.value))} required /></label>
         <label>Floor margin percent<input type="number" min={0} max={100} value={draft.floorMarginPercent} onChange={(event) => update("floorMarginPercent", Number(event.target.value))} required /></label>
         {error ? <p role="alert">{error}</p> : null}
-        <button type="submit" disabled={isSaving || isLoading}>{isSaving ? "Saving..." : "Save and continue"}</button>
+        <button type="submit" disabled={isSaving || isLoading}>{isSaving ? "Saving..." : draft.id ? "Save changes and continue" : "Save and continue"}</button>
       </form>
     </WorkflowShell>
   );

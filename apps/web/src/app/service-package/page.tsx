@@ -4,7 +4,7 @@ import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { WorkflowShell } from "../../components/workflow/workflow-shell";
-import { getWorkflowState, postJson, splitLineSeparatedList } from "../../lib/launch-os";
+import { getWorkflowState, saveJson, splitLineSeparatedList } from "../../lib/launch-os";
 
 interface ServiceDefinitionOption {
   id: string;
@@ -43,6 +43,7 @@ export default function ServicePackagePage() {
   const [serviceDefinitions, setServiceDefinitions] = useState<ServiceDefinitionOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [hasSavedState, setHasSavedState] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -63,6 +64,7 @@ export default function ServicePackagePage() {
             defaultExclusionsText: state.servicePackage.defaultExclusions.join("\n"),
             selectedServiceDefinitionIds: state.servicePackage.items.map((item) => item.serviceDefinitionId)
           });
+          setHasSavedState(true);
         } else if (state.referenceData.serviceDefinitions.length > 0) {
           setDraft((current) => ({
             ...current,
@@ -121,7 +123,7 @@ export default function ServicePackagePage() {
     }
 
     try {
-      await postJson("/service-package", {
+      const saved = await saveJson<{ id: string }>("/service-package", {
         id: draft.id,
         name: draft.name,
         marketPosition: draft.marketPosition,
@@ -133,7 +135,9 @@ export default function ServicePackagePage() {
         defaultExclusions: splitLineSeparatedList(draft.defaultExclusionsText),
         status: "draft",
         items: selectedItems
-      });
+      }, draft.id ? "PUT" : "POST");
+      setDraft((current) => ({ ...current, id: saved.id }));
+      setHasSavedState(true);
       router.push("/pricing");
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to save service package.");
@@ -143,7 +147,12 @@ export default function ServicePackagePage() {
   }
 
   return (
-    <WorkflowShell currentStep="Service Package" title="Service Package" description="Build a minimal package definition that the recommendation engine can evaluate.">
+    <WorkflowShell
+      currentStep="Service Package"
+      title="Service Package"
+      description="Build a minimal package definition that the recommendation engine can evaluate."
+      savedStateLabel={hasSavedState ? "Saved service package loaded. Updates will overwrite the current tenant-scoped record." : undefined}
+    >
       {isLoading ? <p>Loading service package...</p> : null}
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
         <label>Package name<input value={draft.name} onChange={(event) => update("name", event.target.value)} required /></label>
@@ -163,7 +172,7 @@ export default function ServicePackagePage() {
           ))}
         </fieldset>
         {error ? <p role="alert">{error}</p> : null}
-        <button type="submit" disabled={isSaving || isLoading}>{isSaving ? "Saving..." : "Save and continue"}</button>
+        <button type="submit" disabled={isSaving || isLoading}>{isSaving ? "Saving..." : draft.id ? "Save changes and continue" : "Save and continue"}</button>
       </form>
     </WorkflowShell>
   );

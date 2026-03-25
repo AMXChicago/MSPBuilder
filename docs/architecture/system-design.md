@@ -1,88 +1,66 @@
 # System Design
 
 ## Architecture Summary
-The recommended shape is a TypeScript monorepo with a thin UI, a service-oriented API, centralized recommendation logic, and a Prisma-backed persistence layer that enforces tenant scoping through application services and repository adapters.
+The current MVP runs as a TypeScript monorepo with a thin Next.js workflow UI, a Fastify API, a centralized rules engine, and Prisma-backed persistence. The active founder workflow is now tenant-aware, persisted, and reloadable across refreshes.
 
-## Repo Topology
-- `apps/web`
-  Next.js workflow UI. It collects inputs, loads saved workflow state from the API, and renders persisted recommendation output.
-- `apps/api`
-  Fastify API responsible for validation, tenant resolution, application services, repository orchestration, and invoking the rules engine.
-- `packages/domain`
-  Shared domain contracts, repository interfaces, tenant context types, and value object primitives.
-- `packages/rules-engine`
-  Centralized recommendation and policy engine. Pricing, package, stack, and security logic all run here from a normalized recommendation context.
-- `packages/templates`
-  Template catalog and rendering contracts for contracts, checklists, SOPs, and marketing assets.
-- `packages/database`
-  Prisma schema, client bootstrap, tenant seed/bootstrap helpers, and Prisma-backed repository adapters.
-
-## Runtime Shape
+## Runtime Responsibilities
 ### Web
-- Loads workflow state from `GET /workflow/state`
-- Submits founder, business model, service package, and pricing data to thin API routes
-- Never computes recommendation logic locally
-- Survives refreshes because saved state is loaded from persistence
+- Loads saved workflow state from `GET /workflow/state`
+- Saves founder, business model, service package, and pricing data through thin API routes
+- Shows progress, saved-state messaging, and recommendation output
+- Does not contain recommendation logic
 
 ### API
-- Resolves tenant context from request headers, payload, query, or local-development bootstrap
-- Validates payloads with zod
-- Calls application services rather than Prisma directly from routes
-- Persists workflow records and recommendation outputs
-- Builds normalized recommendation context from persisted state and reference data
+- Resolves tenant context from headers, request payload/query, or a local-development bootstrap fallback
+- Validates input with zod
+- Uses application services to coordinate repository calls and recommendation generation
+- Returns standardized `{ ok, data }` success envelopes and structured error responses
+
+### Rules Engine
+- Consumes normalized `RecommendationContext`
+- Produces pricing, package, stack, and security outputs
+- Aggregates them into one result with:
+  - score
+  - readiness
+  - risk
+  - confidence
+  - missing-information warnings
+  - top action items
+  - recommended next steps
 
 ### Database Layer
-- Prisma is the system-of-record boundary
-- Repository adapters translate Prisma enums, decimals, and relations into domain contracts
-- Every repository method requires `TenantContext`
-- Persistence concerns stay out of the web app and rules engine
+- Uses Prisma as the persistence boundary
+- Repository adapters translate Prisma records into domain contracts
+- Every repository method requires tenant context
+- Recommendation scenarios and recommendation results are persisted for reloadability
 
-## Tenant Model
-- `Organization` is the tenant root
-- Every business record includes `organizationId`
-- Repository reads and writes always include organization scoping
-- Local development uses a bootstrap organization and user when no auth context exists
-- Real auth will later replace bootstrap tenant resolution with authenticated membership lookup
+## Persisted Founder Workflow
+1. Operator opens `/founder` and the page loads saved state from the backend.
+2. Each save writes through the API into tenant-scoped repositories.
+3. Back/forward navigation and refresh reload the same saved tenant records.
+4. `/recommendation` rebuilds preview output from the latest persisted founder, business model, service package, and pricing records.
+5. Recommendation preview persistence stores both scenario snapshots and unified result output.
 
-## Application Service Boundary
-The first persisted workflow is coordinated by an application service in the API layer.
+## Tenant-Aware Behavior
+- `Organization` is the tenant root.
+- All workflow records are scoped by `organizationId`.
+- Repository writes pre-check ownership before update to avoid cross-tenant overwrite by foreign IDs.
+- Local development can bootstrap a fallback organization and user when auth is not yet wired.
+- Real auth will later replace this fallback with membership-backed tenant resolution.
 
-Current responsibilities:
-- save founder profile
-- save business model
-- save service package
-- save pricing model
-- fetch saved workflow state
-- build recommendation scenario from persisted records
-- generate unified recommendation preview
-- persist recommendation results and stack recommendation links
+## Recommendation Preview Behavior
+The recommendation preview is intentionally read-mostly and explainable.
 
-This boundary exists so routes stay thin and so repository coordination does not leak into the UI.
+It always:
+- loads persisted workflow state first
+- builds a fresh recommendation scenario snapshot
+- runs the rules engine from normalized context
+- persists the unified result and output links
+- returns grouped reasoning, action items, next steps, and missing-information warnings
 
-## Persistence Strategy For Recommendations
-The current flow persists recommendation execution in three layers:
-- `RecommendationScenario`
-  Versioned snapshot of all inputs used to generate the recommendation.
-- `RecommendationResultRecord`
-  Persisted unified result plus detailed breakdown JSON for reload and history.
-- `StackRecommendation`
-  Structured vendor linkage for stack-fit output.
-
-This gives the product both explainability and an upgrade path toward recommendation history, audits, and scenario comparison.
-
-## Development Bootstrap
-A simple dev bootstrap creates:
-- a local development organization
-- a local development user
-- membership between them
-- tenant-scoped service definitions
-- tenant-scoped vendor metadata
-
-This allows the current workflow to behave like a real multi-tenant application before full auth is added.
-
-## Future Evolution
-- replace development tenant bootstrap with authenticated tenant resolution and RBAC
-- add migrations and seed commands for local environment setup
-- add recommendation history browsing and scenario diffing
-- persist vendor cost profiles and baseline catalogs as first-class tenant data
-- introduce async jobs for recommendation refresh and document generation
+## Known Limitations
+- Auth and RBAC are still not integrated.
+- The development tenant bootstrap is a temporary local fallback.
+- The UI is intentionally minimal and optimized for internal testing rather than polished operator experience.
+- Recommendation history browsing and scenario comparison are not yet built.
+- I could not run typecheck, Prisma generation, or tests in this environment because `node` and `pnpm` are unavailable.
