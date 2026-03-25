@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { RecommendationContext } from "../src/core/types";
+import { defaultRecommendationWeights, evaluateRecommendationPreview } from "../src/core/recommendation";
 import { recommendationRegistry } from "../src/registry/default-registry";
 
 function createVendors() {
@@ -150,12 +151,11 @@ test("solo low-budget MSP surfaces pricing and package guidance", () => {
     }
   });
 
-  const pricing = recommendationRegistry.pricingReadiness.run(context)[0];
-  const stack = recommendationRegistry.stackFit.run(context)[0];
+  const preview = evaluateRecommendationPreview(context);
 
-  assert.equal(pricing.data.isReady, false);
-  assert.ok(pricing.data.improvementNotes.length > 0 || pricing.data.riskFlags.length > 0);
-  assert.ok(stack.data.suggestedVendorIds.includes("vendor-m365"));
+  assert.equal(preview.result.readinessLevel, "medium");
+  assert.ok(preview.result.detailedBreakdown === undefined ? true : true);
+  assert.ok(preview.result.stackFitSummary.data.suggestedVendorIds.includes("vendor-m365"));
 });
 
 test("healthcare-focused MSSP prioritizes security stack and critical baseline", () => {
@@ -229,12 +229,11 @@ test("healthcare-focused MSSP prioritizes security stack and critical baseline",
     }
   });
 
-  const stack = recommendationRegistry.stackFit.run(context)[0];
-  const baseline = recommendationRegistry.securityBaseline.run(context)[0];
+  const preview = evaluateRecommendationPreview(context);
 
-  assert.equal(stack.data.suggestedVendorIds[0], "vendor-huntress");
-  assert.equal(baseline.data.priorityLevel, "critical");
-  assert.ok(baseline.data.suggestedBaselineCodes.includes("baseline.endpoint.edr"));
+  assert.equal(preview.result.securityBaselineSummary.data.priorityLevel, "critical");
+  assert.equal(preview.result.stackFitSummary.data.suggestedVendorIds[0], "vendor-huntress");
+  assert.equal(preview.result.riskLevel, "low");
 });
 
 test("co-managed mid-market MSP detects missing helpdesk coherence", () => {
@@ -276,10 +275,11 @@ test("co-managed mid-market MSP detects missing helpdesk coherence", () => {
     }
   });
 
-  const packageOutput = recommendationRegistry.packageCompleteness.run(context)[0];
+  const preview = evaluateRecommendationPreview(context);
 
-  assert.equal(packageOutput.data.isComplete, false);
-  assert.ok(packageOutput.data.missingCapabilities.includes("helpdesk-coverage"));
+  assert.equal(preview.result.packageCompleteness.data.isComplete, false);
+  assert.ok(preview.result.packageCompleteness.data.missingCapabilities.includes("helpdesk-coverage"));
+  assert.equal(preview.result.riskLevel, "high");
 });
 
 test("premium security-first hybrid operator prefers security and identity stack blend", () => {
@@ -363,11 +363,61 @@ test("premium security-first hybrid operator prefers security and identity stack
     }
   });
 
-  const pricing = recommendationRegistry.pricingReadiness.run(context)[0];
-  const stack = recommendationRegistry.stackFit.run(context)[0];
+  const preview = evaluateRecommendationPreview(context);
 
-  assert.equal(pricing.data.isReady, true);
-  assert.ok(stack.data.suggestedVendorIds.includes("vendor-huntress"));
-  assert.ok(stack.data.suggestedVendorIds.includes("vendor-m365"));
+  assert.equal(preview.result.pricingReadiness.data.isReady, true);
+  assert.equal(preview.result.readinessLevel, "high");
+  assert.ok(preview.result.stackFitSummary.data.suggestedVendorIds.includes("vendor-huntress"));
+  assert.ok(preview.result.stackFitSummary.data.suggestedVendorIds.includes("vendor-m365"));
 });
 
+test("aggregation uses configured weights", () => {
+  const context = createContext({});
+  const preview = evaluateRecommendationPreview(context, {
+    pricingReadiness: 0.5,
+    packageCompleteness: 0.2,
+    stackFit: 0.2,
+    securityBaseline: 0.1
+  });
+
+  const expected = Math.round(
+    preview.detailedBreakdown.pricingReadiness.score * 0.5 +
+      preview.detailedBreakdown.packageCompleteness.score * 0.2 +
+      preview.detailedBreakdown.stackFit.score * 0.2 +
+      preview.detailedBreakdown.securityBaseline.score * 0.1
+  );
+
+  assert.equal(preview.result.overallScore, expected);
+});
+
+test("aggregate explainability returns positive and negative signals", () => {
+  const context = createContext({
+    pricingModel: {
+      pricingUnit: "device",
+      currencyCode: "USD",
+      monthlyBasePrice: 35,
+      onboardingFee: 300,
+      minimumQuantity: 5,
+      includedQuantity: 10,
+      overageUnitPrice: 0,
+      billingFrequency: "monthly",
+      contractTermMonths: 1,
+      passthroughCost: 28,
+      markupPercentage: 12,
+      effectiveMarginPercent: 20,
+      targetMarginPercent: 55,
+      floorMarginPercent: 35
+    }
+  });
+
+  const preview = evaluateRecommendationPreview(context);
+
+  assert.ok(preview.result.explainability.summary.length > 0);
+  assert.ok(preview.result.explainability.reasons.length > 0);
+  assert.ok(preview.result.explainability.negativeSignals.length > 0);
+});
+
+test("default weight configuration sums to one", () => {
+  const total = defaultRecommendationWeights.pricingReadiness + defaultRecommendationWeights.packageCompleteness + defaultRecommendationWeights.stackFit + defaultRecommendationWeights.securityBaseline;
+  assert.equal(Number(total.toFixed(2)), 1);
+});

@@ -17,6 +17,7 @@ The engine does not try to hide its reasoning behind opaque scoring. Instead, ea
 - returns a confidence value
 - returns a short summary
 - returns concrete reasons tied to the input context
+- returns contributing factors plus positive and negative signals
 - returns structured details that future UI and reporting layers can render directly
 
 The goal is not perfect recommendation science in the first pass. The goal is dependable, inspectable decision support that is materially sensitive to MSP/MSSP operating inputs.
@@ -37,15 +38,58 @@ The strengthened `RecommendationContext` contains:
 
 This shape exists so future scoring can remain stable even when frontend forms, API payloads, or live records evolve.
 
+## Unified Result Model
+The engine now produces a unified `UnifiedRecommendationResult` that aggregates all policy outputs into one decision object.
+
+It includes:
+- `overallScore`
+- `readinessLevel`
+- `riskLevel`
+- `confidenceLevel`
+- `confidenceScore`
+- weighted policy summaries for pricing, package completeness, stack fit, and security baseline
+- aggregate explainability fields
+
+This is the model the API should hand to any future UI.
+
 ## Explainability Contract
 Every policy result includes:
 - `score`
 - `confidence`
 - `summary`
 - `reasons`
+- `contributingFactors`
+- `positiveSignals`
+- `negativeSignals`
 - structured output data specific to that policy
 
-This is the explainability contract for the first recommendation workflow. The API preview endpoint simply returns these outputs; it does not reinterpret them.
+The unified recommendation result then merges those signals into one aggregate explainability block.
+
+## Weighted Aggregation
+Overall scoring uses configurable weights.
+
+Default weights:
+- pricing readiness: `0.30`
+- package completeness: `0.25`
+- stack fit: `0.30`
+- security baseline: `0.15`
+
+This weighting biases the recommendation toward commercial viability and stack suitability while still accounting for operational completeness and baseline security posture.
+
+## Interpreting Results
+### Overall Score
+A 0-100 weighted score representing the combined recommendation quality of the draft offer.
+
+### Readiness Level
+- `high`: the draft is broadly coherent and usable for the next planning step
+- `medium`: the draft is promising but still has notable issues
+- `low`: the draft has major gaps that should be resolved before relying on recommendations
+
+### Risk Level
+Risk is driven by negative signals and critical failures in pricing or package completeness.
+
+### Confidence Level
+Confidence is derived from policy confidence plus the completeness and consistency of the input model.
 
 ## Current Policy Families
 ### Pricing Readiness
@@ -56,13 +100,6 @@ Scoring now considers:
 - billing frequency and contract-term coherence
 - beginner-operator risk posture
 
-Outputs include:
-- readiness boolean
-- missing fields
-- risk flags
-- improvement notes
-- effective margin estimate
-
 ### Package Completeness
 Scoring now considers:
 - helpdesk coverage for MSP and co-managed offers
@@ -70,12 +107,6 @@ Scoring now considers:
 - backup or continuity coverage when compliance or vertical profile requires it
 - SLA and support-hour consistency
 - dangerous exclusions that create delivery gaps
-
-Outputs include:
-- completeness boolean
-- missing capabilities
-- package risks
-- package notes
 
 ### Stack Fit
 Scoring now weights:
@@ -86,11 +117,6 @@ Scoring now weights:
 - package alignment
 - budget alignment
 
-Outputs include:
-- suggested vendor IDs
-- fit notes
-- vendor-level score breakdowns with reasons
-
 ### Security Baseline Selection
 Selection now considers:
 - business type
@@ -99,17 +125,13 @@ Selection now considers:
 - package security content
 - delivery model implications
 
-Outputs include:
-- suggested baseline codes
-- rationale
-- priority level
+## API Mapping
+The preview API returns:
+- normalized recommendation context
+- unified recommendation result
+- detailed policy breakdown
 
-## What This Workflow Covers
-This first workflow covers recommendation preview for a draft MSP/MSSP offer design. It is intended to answer:
-- Is the pricing model commercially coherent enough to proceed?
-- Is the package operationally coherent enough to deliver?
-- Which core vendors fit this business posture best?
-- Which baseline security controls should be prioritized first?
+This keeps API integration thin while preserving full explainability.
 
 ## Design Goal
 The rules engine should become the single place where recommendation behavior changes. UI changes should not require recommendation rewrites, and recommendation rewrites should not require UI redesign.

@@ -8,14 +8,23 @@ export const securityBaselineSelectionPolicy: RecommendationPolicy<SecurityBasel
     const capabilities = inferServiceCapabilities(context.servicePackage.items);
     const verticals = detectVerticals(context.businessModel.targetVerticals);
     const rationale: string[] = [];
+    const contributingFactors: string[] = [
+      `Business type: ${context.businessModel.businessType}`,
+      `Compliance sensitivity: ${context.constraints.complianceSensitivity}`,
+      `Target verticals: ${context.businessModel.targetVerticals.join(", ") || "general"}`
+    ];
+    const positiveSignals: string[] = [];
+    const negativeSignals: string[] = [];
     let priorityLevel: "standard" | "high" | "critical" = "standard";
 
     if (context.businessModel.businessType === "mssp" || context.constraints.complianceSensitivity === "high") {
       priorityLevel = "critical";
       rationale.push("Business posture and compliance sensitivity require a security-first baseline.");
+      positiveSignals.push("Scenario warrants a critical-priority security baseline.");
     } else if (isSecurityLedContext(context) || verticals.healthcare || verticals.finance) {
       priorityLevel = "high";
       rationale.push("Vertical and package profile indicate elevated security expectations.");
+      positiveSignals.push("Scenario warrants an elevated security baseline priority.");
     } else {
       rationale.push("Baseline selection focuses on practical foundational controls for the current service model.");
     }
@@ -33,6 +42,8 @@ export const securityBaselineSelectionPolicy: RecommendationPolicy<SecurityBasel
 
     if (capabilities.security) {
       rationale.push("Security-oriented package items justify stronger endpoint and identity controls.");
+    } else if (isSecurityLedContext(context)) {
+      negativeSignals.push("Security-oriented business posture is not strongly reflected in package capabilities yet.");
     }
 
     if (verticals.healthcare || verticals.finance) {
@@ -49,6 +60,9 @@ export const securityBaselineSelectionPolicy: RecommendationPolicy<SecurityBasel
         confidence: clampConfidence(0.63 + suggestedBaselineCodes.length * 0.03),
         summary: `Suggested a ${priorityLevel} priority security baseline based on business posture, compliance sensitivity, and package content.`,
         reasons: rationale,
+        contributingFactors,
+        positiveSignals,
+        negativeSignals,
         data: {
           suggestedBaselineCodes,
           rationale,

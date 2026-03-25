@@ -8,8 +8,8 @@
 5. User enters pricing inputs including quantities, billing cadence, cost assumptions, and margin structure.
 6. System builds a versioned recommendation scenario.
 7. The rules engine evaluates pricing readiness, package completeness, stack fit, and security baseline selection.
-8. The API returns normalized context plus explainable policy outputs.
-9. User iterates on business posture, package design, or pricing based on recommendation reasons.
+8. The API returns normalized context, a unified recommendation result, and detailed explainability.
+9. User iterates on business posture, package design, or pricing based on recommendation reasons, positive signals, and risk flags.
 
 ## First Recommendation Workflow
 This first workflow is a recommendation preview workflow. It does not attempt to automate the entire launch platform yet. Instead, it helps validate whether a proposed MSP/MSSP offer is commercially and operationally coherent.
@@ -24,15 +24,26 @@ This first workflow is a recommendation preview workflow. It does not attempt to
 - baseline options
 
 ### Outputs Returned
-- pricing readiness result
-- package completeness result
+- normalized `RecommendationContext`
+- unified `RecommendationResult`
+- detailed pricing readiness output
+- detailed package completeness output
 - stack-fit shortlist with reasons and score breakdown
 - security baseline recommendation with rationale and priority
+
+### How Results Are Interpreted
+- `overallScore` shows overall recommendation quality on a 0-100 scale
+- `readinessLevel` signals whether the offer is ready for the next planning step
+- `riskLevel` highlights operational or commercial exposure
+- `confidenceLevel` reflects how complete and internally consistent the current model is
 
 ### Explainability Behavior
 Every output includes:
 - a summary sentence
 - explicit reasons
+- contributing factors
+- positive signals
+- negative signals
 - a score
 - a confidence indicator
 - structured detail fields for downstream rendering

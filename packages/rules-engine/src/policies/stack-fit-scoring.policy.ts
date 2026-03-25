@@ -90,6 +90,11 @@ export const stackFitScoringPolicy: RecommendationPolicy<StackFitOutput> = {
   evaluate(context: RecommendationContext) {
     const scoreBreakdown = context.vendors.map((vendor) => scoreVendor(context, vendor)).sort((left, right) => right.totalScore - left.totalScore);
     const topVendors = scoreBreakdown.slice(0, 3);
+    const positiveSignals = topVendors.map((item) => `${item.vendorName} shows strong fit through ${item.reasons.slice(0, 2).join(" and ")}.`);
+    const negativeSignals = scoreBreakdown
+      .filter((item) => item.totalScore < 55)
+      .slice(0, 2)
+      .map((item) => `${item.vendorName} has a weaker fit due to ${item.reasons.slice(-1)[0] ?? "limited context alignment"}.`);
 
     return [
       {
@@ -101,6 +106,14 @@ export const stackFitScoringPolicy: RecommendationPolicy<StackFitOutput> = {
           ? "The stack shortlist reflects business posture, compliance needs, package design, and commercial positioning."
           : "No vendor shortlist could be produced from the current context.",
         reasons: topVendors.flatMap((item) => item.reasons.slice(0, 2)).slice(0, 6),
+        contributingFactors: [
+          `Business type: ${context.businessModel.businessType}`,
+          `Compliance sensitivity: ${context.constraints.complianceSensitivity}`,
+          `Budget positioning: ${context.constraints.budgetPositioning}`,
+          `Package item count: ${context.servicePackage.items.length}`
+        ],
+        positiveSignals,
+        negativeSignals,
         data: {
           suggestedVendorIds: topVendors.map((item) => item.vendorId),
           fitNotes: topVendors.map((item) => `${item.vendorName} scored ${item.totalScore}/100 due to ${item.reasons.slice(0, 2).join(" and ")}.`),

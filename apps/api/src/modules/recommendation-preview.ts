@@ -1,5 +1,5 @@
 import { commonServiceDefinitions, vendorMetadataSeeds } from "@launch-os/database";
-import { recommendationRegistry } from "@launch-os/rules-engine";
+import { evaluateRecommendationPreview } from "@launch-os/rules-engine";
 import {
   getLatestBusinessModel,
   getLatestFounderProfile,
@@ -141,26 +141,8 @@ export function buildRecommendationPreview(organizationId: string) {
     }
   });
 
-  const context = {
+  return evaluateRecommendationPreview({
     ...normalizedContext,
     scenarioId: scenario.id
-  };
-
-  const policyOutputs = {
-    pricingReadiness: recommendationRegistry.pricingReadiness.run(context)[0],
-    packageCompleteness: recommendationRegistry.packageCompleteness.run(context)[0],
-    stackFit: recommendationRegistry.stackFit.run(context)[0],
-    securityBaseline: recommendationRegistry.securityBaseline.run(context)[0]
-  };
-
-  return {
-    scenario,
-    normalizedContext: context,
-    policyOutputs,
-    outputs: Object.values(policyOutputs),
-    explainability: {
-      summaries: Object.values(policyOutputs).map((output) => output.summary),
-      reasons: Object.values(policyOutputs).flatMap((output) => output.reasons)
-    }
-  };
+  });
 }
