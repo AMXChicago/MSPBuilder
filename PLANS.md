@@ -4,17 +4,10 @@
 MSP/MSSP Launch OS
 
 ## Current Phase
-Foundation / Architecture / First End-to-End Flow
+Persistence / Tenant-Aware Workflow Foundation
 
 ## Goal Of This Phase
-Connect the first usable end-to-end workflow from:
-- founder input
-- business model input
-- service package input
-- pricing input
-- recommendation preview output
-
-using the existing API and rules engine with minimal UI only
+Replace temporary workflow state with Prisma-backed persistence so the current founder -> business model -> service package -> pricing -> recommendation flow behaves like a real multi-tenant SaaS foundation.
 
 ## MVP Scope
 ### In MVP
@@ -43,6 +36,8 @@ using the existing API and rules engine with minimal UI only
 - Fastify for the API service layer
 - PostgreSQL with Prisma for persistence
 - shared domain package for contracts, enums, and value objects
+- tenant-aware repository adapters at the database boundary
+- application services to coordinate persistence and recommendation generation
 - rules-engine package for recommendation and decision orchestration
 - templates package for reusable contracts, onboarding assets, SOPs, and marketing assets
 - configuration-driven recommendations, scoring, and defaults
@@ -56,6 +51,7 @@ using the existing API and rules engine with minimal UI only
 - Pricing and Margin Modeling
 - Vendor Catalog
 - Stack Recommendation
+- Recommendation Scenarios and Persisted Outputs
 - Templates and Contracts
 - Onboarding and SOPs
 - Security Baseline
@@ -63,18 +59,20 @@ using the existing API and rules engine with minimal UI only
 - KPI Tracking
 
 ## Major Deliverables In This Pass
-1. Add minimal workflow pages for founder, business model, service package, pricing, and recommendation preview
-2. Expose simple API routes for the workflow inputs
-3. Connect frontend form submissions to the API and recommendation preview endpoint
-4. Add loading and error handling for the workflow
-5. Update product flow documentation for the MVP path
+1. Implement Prisma-backed repository adapters for workflow entities and recommendation persistence
+2. Enforce organization scoping in repositories and API routes
+3. Add application services for save, load, and recommendation generation flows
+4. Add workflow-state retrieval and dev tenant bootstrap for local development
+5. Update the web flow to load persisted state and survive refreshes
+6. Add tests for repository behavior, tenant scoping, and persisted recommendation generation
+7. Update architecture and product documentation for persistence
 
 ## Non-Goals For This Pass
 - polished UI or design work
-- live auth integration
-- real payment flows
+- live auth provider integration
 - production deployment automation
-- production repository implementations
+- advanced analytics or reporting surfaces
+- non-workflow product modules beyond the first persisted flow
 
 ## Guiding Principle
-Help users build a profitable, operational MSP/MSSP using centralized logic and reusable domain primitives rather than ad hoc screens and hardcoded decisions.
+Help users build a profitable, operational MSP/MSSP using centralized logic, durable tenant-aware persistence, and reusable domain primitives rather than ad hoc screens and transient state.

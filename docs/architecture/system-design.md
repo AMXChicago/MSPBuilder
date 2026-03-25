@@ -1,55 +1,88 @@
 # System Design
 
 ## Architecture Summary
-The recommended shape is a TypeScript monorepo with a thin UI, a service-oriented API, and shared packages for domain contracts, rules, templates, and persistence.
+The recommended shape is a TypeScript monorepo with a thin UI, a service-oriented API, centralized recommendation logic, and a Prisma-backed persistence layer that enforces tenant scoping through application services and repository adapters.
 
 ## Repo Topology
 - `apps/web`
-  Next.js application shell for authenticated workflows, intake forms, package builders, and dashboards.
+  Next.js workflow UI. It collects inputs, loads saved workflow state from the API, and renders persisted recommendation output.
 - `apps/api`
-  Fastify API responsible for orchestration, validation, and invoking domain use cases plus rules evaluation.
+  Fastify API responsible for validation, tenant resolution, application services, repository orchestration, and invoking the rules engine.
 - `packages/domain`
-  Shared domain contracts, value object primitives, and repository interfaces.
+  Shared domain contracts, repository interfaces, tenant context types, and value object primitives.
 - `packages/rules-engine`
-  Centralized recommendation and policy engine. This is where pricing guardrails and stack recommendations live.
+  Centralized recommendation and policy engine. Pricing, package, stack, and security logic all run here from a normalized recommendation context.
 - `packages/templates`
   Template catalog and rendering contracts for contracts, checklists, SOPs, and marketing assets.
 - `packages/database`
-  Prisma schema and future repository implementations.
+  Prisma schema, client bootstrap, tenant seed/bootstrap helpers, and Prisma-backed repository adapters.
 
-## Why Monorepo
-- shared types stay version-aligned
-- rules engine can be reused by API and async workers later
-- documentation and modules evolve together
-- lower coordination cost during early product formation
+## Runtime Shape
+### Web
+- Loads workflow state from `GET /workflow/state`
+- Submits founder, business model, service package, and pricing data to thin API routes
+- Never computes recommendation logic locally
+- Survives refreshes because saved state is loaded from persistence
 
-## Frontend Choice
-Next.js is the preferred frontend framework because it gives a clean route-based application shell, server rendering where useful, and broad ecosystem support without forcing business logic into React components.
+### API
+- Resolves tenant context from request headers, payload, query, or local-development bootstrap
+- Validates payloads with zod
+- Calls application services rather than Prisma directly from routes
+- Persists workflow records and recommendation outputs
+- Builds normalized recommendation context from persisted state and reference data
 
-## Backend Choice
-Fastify is the preferred backend foundation because it is lightweight, high-performance, type-friendly, and works well when the architecture needs explicit control over module boundaries instead of a framework-heavy abstraction layer.
+### Database Layer
+- Prisma is the system-of-record boundary
+- Repository adapters translate Prisma enums, decimals, and relations into domain contracts
+- Every repository method requires `TenantContext`
+- Persistence concerns stay out of the web app and rules engine
 
-## Persistence
-- PostgreSQL as the system of record
-- Prisma for schema management and generated client
-- tenant scoping via `organizationId` on business data
-- join tables for many-to-many associations
+## Tenant Model
+- `Organization` is the tenant root
+- Every business record includes `organizationId`
+- Repository reads and writes always include organization scoping
+- Local development uses a bootstrap organization and user when no auth context exists
+- Real auth will later replace bootstrap tenant resolution with authenticated membership lookup
 
-## Multi-Tenant Model
-- top-level tenant entity is `Organization`
-- users can belong to multiple organizations via membership records
-- all business entities are scoped to an organization
-- future authz should enforce tenant boundaries in API service layer and repositories
+## Application Service Boundary
+The first persisted workflow is coordinated by an application service in the API layer.
 
-## Recommended Runtime Boundaries
-- Web app: presentation, form state, server actions or API calls
-- API: validation, orchestration, tenancy enforcement, repository access
-- Domain package: types and use case contracts
-- Rules engine: deterministic recommendation logic
-- Templates package: asset metadata and future rendering support
-- Database package: schema and persistence implementation
+Current responsibilities:
+- save founder profile
+- save business model
+- save service package
+- save pricing model
+- fetch saved workflow state
+- build recommendation scenario from persisted records
+- generate unified recommendation preview
+- persist recommendation results and stack recommendation links
+
+This boundary exists so routes stay thin and so repository coordination does not leak into the UI.
+
+## Persistence Strategy For Recommendations
+The current flow persists recommendation execution in three layers:
+- `RecommendationScenario`
+  Versioned snapshot of all inputs used to generate the recommendation.
+- `RecommendationResultRecord`
+  Persisted unified result plus detailed breakdown JSON for reload and history.
+- `StackRecommendation`
+  Structured vendor linkage for stack-fit output.
+
+This gives the product both explainability and an upgrade path toward recommendation history, audits, and scenario comparison.
+
+## Development Bootstrap
+A simple dev bootstrap creates:
+- a local development organization
+- a local development user
+- membership between them
+- tenant-scoped service definitions
+- tenant-scoped vendor metadata
+
+This allows the current workflow to behave like a real multi-tenant application before full auth is added.
 
 ## Future Evolution
-- add background workers for batch recommendation refreshes and document rendering
-- add eventing around organization setup, package publication, and KPI snapshots
-- add tenant-aware RBAC and audit trails
+- replace development tenant bootstrap with authenticated tenant resolution and RBAC
+- add migrations and seed commands for local environment setup
+- add recommendation history browsing and scenario diffing
+- persist vendor cost profiles and baseline catalogs as first-class tenant data
+- introduce async jobs for recommendation refresh and document generation

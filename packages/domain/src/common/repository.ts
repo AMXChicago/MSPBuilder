@@ -1,4 +1,6 @@
+import type { TenantContext } from "./types";
+
 export interface Repository<TModel, TId = string> {
-  getById(id: TId): Promise<TModel | null>;
-  save(model: TModel): Promise<TModel>;
+  getById(context: TenantContext, id: TId): Promise<TModel | null>;
+  save(context: TenantContext, model: TModel): Promise<TModel>;
 }

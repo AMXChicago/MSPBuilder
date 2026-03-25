@@ -161,31 +161,32 @@ model User {
 }
 
 model Organization {
-  id                        String                     @id @default(cuid())
-  name                      String
-  slug                      String                     @unique
-  status                    OrganizationStatus         @default(ACTIVE)
-  createdAt                 DateTime                   @default(now())
-  updatedAt                 DateTime                   @updatedAt
-  members                   OrganizationMember[]
-  founderProfiles           FounderProfile[]
-  businessModels            BusinessModel[]
-  serviceDefinitions        ServiceDefinition[]
-  servicePackages           ServicePackage[]
-  servicePackageItems       ServicePackageItem[]
-  pricingModels             PricingModel[]
-  vendorCosts               VendorCostProfile[]
-  vendors                   Vendor[]
-  recommendationScenarios   RecommendationScenario[]
-  recommendationOutputLinks RecommendationOutputLink[]
-  stackRecommendations      StackRecommendation[]
-  templates                 TemplateAsset[]
-  onboardingChecklists      OnboardingChecklist[]
-  onboardingChecklistSteps  OnboardingChecklistStep[]
-  sopDocuments              SopDocument[]
-  securityBaselines         SecurityBaseline[]
-  launchCampaigns           LaunchCampaign[]
-  kpiRecords                KpiRecord[]
+  id                          String                        @id @default(cuid())
+  name                        String
+  slug                        String                        @unique
+  status                      OrganizationStatus            @default(ACTIVE)
+  createdAt                   DateTime                      @default(now())
+  updatedAt                   DateTime                      @updatedAt
+  members                     OrganizationMember[]
+  founderProfiles             FounderProfile[]
+  businessModels              BusinessModel[]
+  serviceDefinitions          ServiceDefinition[]
+  servicePackages             ServicePackage[]
+  servicePackageItems         ServicePackageItem[]
+  pricingModels               PricingModel[]
+  vendorCosts                 VendorCostProfile[]
+  vendors                     Vendor[]
+  recommendationScenarios     RecommendationScenario[]
+  recommendationOutputLinks   RecommendationOutputLink[]
+  stackRecommendations        StackRecommendation[]
+  recommendationResults       RecommendationResultRecord[]
+  templates                   TemplateAsset[]
+  onboardingChecklists        OnboardingChecklist[]
+  onboardingChecklistSteps    OnboardingChecklistStep[]
+  sopDocuments                SopDocument[]
+  securityBaselines           SecurityBaseline[]
+  launchCampaigns             LaunchCampaign[]
+  kpiRecords                  KpiRecord[]
 }
 
 model OrganizationMember {
@@ -218,6 +219,8 @@ model FounderProfile {
   organization             Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user                     User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
   recommendationScenarios  RecommendationScenario[]
+
+  @@index([organizationId, updatedAt])
 }
 
 model BusinessModel {
@@ -239,6 +242,8 @@ model BusinessModel {
   updatedAt                DateTime               @updatedAt
   organization             Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   recommendationScenarios  RecommendationScenario[]
+
+  @@index([organizationId, updatedAt])
 }
 
 model ServiceDefinition {
@@ -254,6 +259,8 @@ model ServiceDefinition {
   organization       Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   packageItems       ServicePackageItem[]
   vendorCostProfiles VendorCostProfile[]
+
+  @@unique([organizationId, name])
 }
 
 model ServicePackage {
@@ -274,6 +281,8 @@ model ServicePackage {
   items                    ServicePackageItem[]
   pricingModels            PricingModel[]
   recommendationScenarios  RecommendationScenario[]
+
+  @@index([organizationId, updatedAt])
 }
 
 model ServicePackageItem {
@@ -299,28 +308,30 @@ model ServicePackageItem {
 }
 
 model PricingModel {
-  id                     String            @id @default(cuid())
-  organizationId         String
-  servicePackageId       String
-  pricingUnit            PricingUnit
-  currencyCode           String            @default("USD")
-  monthlyBasePrice       Decimal           @db.Decimal(10, 2)
-  onboardingFee          Decimal           @db.Decimal(10, 2)
-  minimumQuantity        Int
-  includedQuantity       Int
-  overageUnitPrice       Decimal           @db.Decimal(10, 2)
-  billingFrequency       BillingFrequency
-  contractTermMonths     Int
-  passthroughCost        Decimal           @db.Decimal(10, 2)
-  markupPercentage       Decimal           @db.Decimal(5, 2)
-  effectiveMarginPercent Decimal?          @db.Decimal(5, 2)
-  targetMarginPercent    Decimal           @db.Decimal(5, 2)
-  floorMarginPercent     Decimal           @db.Decimal(5, 2)
-  createdAt              DateTime          @default(now())
-  updatedAt              DateTime          @updatedAt
-  organization           Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  servicePackage         ServicePackage    @relation(fields: [servicePackageId], references: [id], onDelete: Cascade)
+  id                      String                  @id @default(cuid())
+  organizationId          String
+  servicePackageId        String
+  pricingUnit             PricingUnit
+  currencyCode            String                  @default("USD")
+  monthlyBasePrice        Decimal                 @db.Decimal(10, 2)
+  onboardingFee           Decimal                 @db.Decimal(10, 2)
+  minimumQuantity         Int
+  includedQuantity        Int
+  overageUnitPrice        Decimal                 @db.Decimal(10, 2)
+  billingFrequency        BillingFrequency
+  contractTermMonths      Int
+  passthroughCost         Decimal                 @db.Decimal(10, 2)
+  markupPercentage        Decimal                 @db.Decimal(5, 2)
+  effectiveMarginPercent  Decimal?                @db.Decimal(5, 2)
+  targetMarginPercent     Decimal                 @db.Decimal(5, 2)
+  floorMarginPercent      Decimal                 @db.Decimal(5, 2)
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+  organization            Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  servicePackage          ServicePackage          @relation(fields: [servicePackageId], references: [id], onDelete: Cascade)
   recommendationScenarios RecommendationScenario[]
+
+  @@index([organizationId, updatedAt])
 }
 
 model Vendor {
@@ -336,6 +347,8 @@ model Vendor {
   organization        Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   costProfiles        VendorCostProfile[]
   stackLinks          StackRecommendationVendor[]
+
+  @@unique([organizationId, name])
 }
 
 model VendorCostProfile {
@@ -378,6 +391,9 @@ model RecommendationScenario {
   pricingModel           PricingModel?              @relation(fields: [pricingModelId], references: [id], onDelete: SetNull)
   outputLinks            RecommendationOutputLink[]
   stackRecommendations   StackRecommendation[]
+  recommendationResults  RecommendationResultRecord[]
+
+  @@index([organizationId, createdAt])
 }
 
 model RecommendationOutputLink {
@@ -416,6 +432,27 @@ model StackRecommendationVendor {
   vendor                Vendor              @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
   @@id([stackRecommendationId, vendorId])
+}
+
+model RecommendationResultRecord {
+  id                String                 @id @default(cuid())
+  organizationId    String
+  scenarioId        String
+  overallScore      Decimal                @db.Decimal(5, 2)
+  readinessLevel    String
+  riskLevel         String
+  confidenceLevel   String
+  confidenceScore   Decimal                @db.Decimal(4, 3)
+  summary           String
+  resultSnapshot    Json
+  detailedBreakdown Json
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  organization      Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  scenario          RecommendationScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, scenarioId])
+  @@index([organizationId, createdAt])
 }
 
 model TemplateAsset {

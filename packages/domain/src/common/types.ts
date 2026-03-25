@@ -12,6 +12,11 @@ export interface TenantScoped {
   organizationId: EntityId;
 }
 
+export interface TenantContext {
+  organizationId: EntityId;
+  userId?: EntityId;
+}
+
 export interface SoftDeletable {
   archivedAt?: ISODateString;
 }
@@ -34,3 +39,6 @@ export type PricingUnit = "user" | "device" | "hybrid";
 export type BillingFrequency = "monthly" | "quarterly" | "annual";
 export type RecommendationFamily = "pricing-readiness" | "package-completeness" | "stack-fit" | "security-baseline";
 export type ScenarioStatus = "draft" | "evaluated";
+export type ReadinessLevel = "low" | "medium" | "high";
+export type RiskLevel = "low" | "medium" | "high";
+export type ConfidenceLevel = "low" | "medium" | "high";

@@ -1,47 +1,74 @@
-export const ORGANIZATION_ID = "demo-org";
-export const USER_ID = "demo-user";
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 
-export const STORAGE_KEYS = {
-  founder: "launch-os.founder",
-  businessModel: "launch-os.business-model",
-  servicePackage: "launch-os.service-package",
-  pricing: "launch-os.pricing"
-} as const;
-
-export function readStoredDraft<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") {
-    return fallback;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-export function writeStoredDraft<T>(key: string, value: T) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem(key, JSON.stringify(value));
-}
-
-export function splitCommaSeparatedList(value: string) {
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-export function splitLineSeparatedList(value: string) {
-  return value
-    .split(/\r?\n/)
-    .map((item) => item.trim())
-    .filter(Boolean);
+export interface WorkflowStateResponse {
+  tenant: {
+    organizationId: string;
+    userId?: string;
+  };
+  founderProfile: {
+    id: string;
+    fullName: string;
+    roleTitle: string;
+    priorExperienceYears: number;
+    targetGeo: string;
+    serviceMotion: "managed-services" | "project-led" | "security-led" | "hybrid";
+    maturityLevel: "new" | "growing" | "established";
+    salesConfidence: number;
+    technicalDepth: number;
+    preferredEngagementModel: "fractional-founder" | "owner-operator" | "team-led";
+  } | null;
+  businessModel: {
+    id: string;
+    name: string;
+    businessType: "msp" | "mssp" | "hybrid" | "co-managed";
+    targetVerticals: string[];
+    targetCompanySizes: string[];
+    deliveryModel: "remote" | "onsite" | "hybrid";
+    complianceSensitivity: "low" | "medium" | "high";
+    budgetPositioning: "budget" | "standard" | "premium";
+    founderMaturity: "beginner" | "intermediate" | "advanced";
+    revenueStrategy: "recurring" | "hybrid" | "project-first";
+    targetGrossMarginPercent: number;
+  } | null;
+  servicePackage: {
+    id: string;
+    name: string;
+    marketPosition: "good" | "better" | "best" | "enterprise";
+    description: string;
+    targetPersona: string;
+    includesSecurityBaseline: boolean;
+    defaultSlaTier: "best-effort" | "standard" | "priority" | "24x7";
+    defaultSupportHours: "business-hours" | "extended-hours" | "24x7";
+    defaultExclusions: string[];
+    items: Array<{
+      id: string;
+      serviceDefinitionId: string;
+    }>;
+  } | null;
+  pricingModel: {
+    id: string;
+    servicePackageId: string;
+    pricingUnit: "user" | "device" | "hybrid";
+    monthlyBasePrice: number;
+    onboardingFee: number;
+    minimumQuantity: number;
+    includedQuantity: number;
+    overageUnitPrice: number;
+    billingFrequency: "monthly" | "quarterly" | "annual";
+    contractTermMonths: number;
+    passthroughCost: number;
+    markupPercentage: number;
+    targetMarginPercent: number;
+    floorMarginPercent: number;
+    effectiveMarginPercent?: number;
+  } | null;
+  referenceData: {
+    serviceDefinitions: Array<{
+      id: string;
+      name: string;
+      category: string;
+    }>;
+  };
 }
 
 export async function postJson<TResponse>(path: string, payload: unknown): Promise<TResponse> {
@@ -54,8 +81,7 @@ export async function postJson<TResponse>(path: string, payload: unknown): Promi
   });
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Request failed with status ${response.status}`);
+    throw new Error((await response.text()) || `Request failed with status ${response.status}`);
   }
 
   return (await response.json()) as TResponse;
@@ -71,9 +97,27 @@ export async function getJson<TResponse>(path: string): Promise<TResponse> {
   });
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Request failed with status ${response.status}`);
+    throw new Error((await response.text()) || `Request failed with status ${response.status}`);
   }
 
   return (await response.json()) as TResponse;
+}
+
+export async function getWorkflowState() {
+  const response = await getJson<{ data: WorkflowStateResponse }>("/workflow/state");
+  return response.data;
+}
+
+export function splitCommaSeparatedList(value: string) {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+export function splitLineSeparatedList(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
 }

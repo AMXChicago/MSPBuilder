@@ -4,14 +4,13 @@ import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { WorkflowShell } from "../../components/workflow/workflow-shell";
-import {
-  ORGANIZATION_ID,
-  STORAGE_KEYS,
-  postJson,
-  readStoredDraft,
-  splitLineSeparatedList,
-  writeStoredDraft
-} from "../../lib/launch-os";
+import { getWorkflowState, postJson, splitLineSeparatedList } from "../../lib/launch-os";
+
+interface ServiceDefinitionOption {
+  id: string;
+  name: string;
+  category: string;
+}
 
 interface ServicePackageDraft {
   id?: string;
@@ -23,22 +22,7 @@ interface ServicePackageDraft {
   defaultSlaTier: "best-effort" | "standard" | "priority" | "24x7";
   defaultSupportHours: "business-hours" | "extended-hours" | "24x7";
   defaultExclusionsText: string;
-  includeHelpDesk: boolean;
-  includeEndpointSecurity: boolean;
-  includeBackup: boolean;
-  includeMicrosoft365: boolean;
-  includeNetworkSecurity: boolean;
-}
-
-interface ServicePackageItemInput {
-  serviceDefinitionId: string;
-  isRequired: boolean;
-  includedQuantity: number;
-  slaTier: "best-effort" | "standard" | "priority" | "24x7";
-  supportHours: "business-hours" | "extended-hours" | "24x7";
-  exclusions: string[];
-  priorityLevel: "low" | "standard" | "high" | "critical";
-  sortOrder: number;
+  selectedServiceDefinitionIds: string[];
 }
 
 const defaultDraft: ServicePackageDraft = {
@@ -50,94 +34,79 @@ const defaultDraft: ServicePackageDraft = {
   defaultSlaTier: "standard",
   defaultSupportHours: "business-hours",
   defaultExclusionsText: "After-hours onsite support\nProject labor outside recurring scope",
-  includeHelpDesk: true,
-  includeEndpointSecurity: true,
-  includeBackup: true,
-  includeMicrosoft365: true,
-  includeNetworkSecurity: false
+  selectedServiceDefinitionIds: []
 };
-
-function buildPackageItems(draft: ServicePackageDraft): ServicePackageItemInput[] {
-  const items: Array<ServicePackageItemInput | null> = [
-    draft.includeHelpDesk
-      ? {
-          serviceDefinitionId: "Managed Help Desk",
-          isRequired: true,
-          includedQuantity: 1,
-          slaTier: draft.defaultSlaTier,
-          supportHours: draft.defaultSupportHours,
-          exclusions: [],
-          priorityLevel: "high",
-          sortOrder: 0
-        }
-      : null,
-    draft.includeEndpointSecurity
-      ? {
-          serviceDefinitionId: "Endpoint Detection and Response",
-          isRequired: true,
-          includedQuantity: 1,
-          slaTier: draft.defaultSlaTier,
-          supportHours: draft.defaultSupportHours === "business-hours" ? "extended-hours" : draft.defaultSupportHours,
-          exclusions: [],
-          priorityLevel: "critical",
-          sortOrder: 1
-        }
-      : null,
-    draft.includeBackup
-      ? {
-          serviceDefinitionId: "Backup Monitoring",
-          isRequired: true,
-          includedQuantity: 1,
-          slaTier: draft.defaultSlaTier,
-          supportHours: draft.defaultSupportHours,
-          exclusions: [],
-          priorityLevel: "high",
-          sortOrder: 2
-        }
-      : null,
-    draft.includeMicrosoft365
-      ? {
-          serviceDefinitionId: "Microsoft 365 Administration",
-          isRequired: false,
-          includedQuantity: 1,
-          slaTier: draft.defaultSlaTier,
-          supportHours: draft.defaultSupportHours,
-          exclusions: [],
-          priorityLevel: "standard",
-          sortOrder: 3
-        }
-      : null,
-    draft.includeNetworkSecurity
-      ? {
-          serviceDefinitionId: "Network Security Monitoring",
-          isRequired: false,
-          includedQuantity: 1,
-          slaTier: draft.defaultSlaTier,
-          supportHours: draft.defaultSupportHours === "business-hours" ? "extended-hours" : draft.defaultSupportHours,
-          exclusions: [],
-          priorityLevel: "high",
-          sortOrder: 4
-        }
-      : null
-  ];
-
-  return items.filter((item): item is ServicePackageItemInput => item !== null);
-}
 
 export default function ServicePackagePage() {
   const router = useRouter();
   const [draft, setDraft] = useState<ServicePackageDraft>(defaultDraft);
+  const [serviceDefinitions, setServiceDefinitions] = useState<ServiceDefinitionOption[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setDraft(readStoredDraft(STORAGE_KEYS.servicePackage, defaultDraft));
+    async function load() {
+      try {
+        const state = await getWorkflowState();
+        setServiceDefinitions(state.referenceData.serviceDefinitions);
+        if (state.servicePackage) {
+          setDraft({
+            id: state.servicePackage.id,
+            name: state.servicePackage.name,
+            marketPosition: state.servicePackage.marketPosition,
+            description: state.servicePackage.description,
+            targetPersona: state.servicePackage.targetPersona,
+            includesSecurityBaseline: state.servicePackage.includesSecurityBaseline,
+            defaultSlaTier: state.servicePackage.defaultSlaTier,
+            defaultSupportHours: state.servicePackage.defaultSupportHours,
+            defaultExclusionsText: state.servicePackage.defaultExclusions.join("\n"),
+            selectedServiceDefinitionIds: state.servicePackage.items.map((item) => item.serviceDefinitionId)
+          });
+        } else if (state.referenceData.serviceDefinitions.length > 0) {
+          setDraft((current) => ({
+            ...current,
+            selectedServiceDefinitionIds: state.referenceData.serviceDefinitions.slice(0, 3).map((definition) => definition.id)
+          }));
+        }
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : "Unable to load service package state.");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    void load();
   }, []);
 
-  const selectedServices = useMemo(() => buildPackageItems(draft), [draft]);
+  const selectedItems = useMemo(() => {
+    return draft.selectedServiceDefinitionIds.map((serviceDefinitionId, index) => {
+      const serviceDefinition = serviceDefinitions.find((definition) => definition.id === serviceDefinitionId);
+      const isSecurity = serviceDefinition?.category === "security";
+      return {
+        serviceDefinitionId,
+        isRequired: true,
+        includedQuantity: 1,
+        slaTier: draft.defaultSlaTier,
+        supportHours: isSecurity && draft.defaultSupportHours === "business-hours" ? "extended-hours" : draft.defaultSupportHours,
+        exclusions: [],
+        priorityLevel: isSecurity ? "critical" as const : "high" as const,
+        sortOrder: index
+      };
+    });
+  }, [draft.defaultSlaTier, draft.defaultSupportHours, draft.selectedServiceDefinitionIds, serviceDefinitions]);
 
   function update<K extends keyof ServicePackageDraft>(key: K, value: ServicePackageDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function toggleServiceDefinition(serviceDefinitionId: string) {
+    setDraft((current) => ({
+      ...current,
+      selectedServiceDefinitionIds: current.selectedServiceDefinitionIds.includes(serviceDefinitionId)
+        ? current.selectedServiceDefinitionIds.filter((id) => id !== serviceDefinitionId)
+        : [...current.selectedServiceDefinitionIds, serviceDefinitionId]
+    }));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -145,30 +114,26 @@ export default function ServicePackagePage() {
     setIsSaving(true);
     setError(null);
 
-    if (selectedServices.length === 0) {
+    if (selectedItems.length === 0) {
       setError("Select at least one service for the package.");
       setIsSaving(false);
       return;
     }
 
-    const payload = {
-      id: draft.id,
-      organizationId: ORGANIZATION_ID,
-      name: draft.name,
-      marketPosition: draft.marketPosition,
-      description: draft.description,
-      targetPersona: draft.targetPersona,
-      includesSecurityBaseline: draft.includesSecurityBaseline,
-      defaultSlaTier: draft.defaultSlaTier,
-      defaultSupportHours: draft.defaultSupportHours,
-      defaultExclusions: splitLineSeparatedList(draft.defaultExclusionsText),
-      status: "draft",
-      items: selectedServices
-    };
-
     try {
-      const response = await postJson<{ data: { id: string } }>("/service-package", payload);
-      writeStoredDraft(STORAGE_KEYS.servicePackage, { ...draft, id: response.data.id });
+      await postJson("/service-package", {
+        id: draft.id,
+        name: draft.name,
+        marketPosition: draft.marketPosition,
+        description: draft.description,
+        targetPersona: draft.targetPersona,
+        includesSecurityBaseline: draft.includesSecurityBaseline,
+        defaultSlaTier: draft.defaultSlaTier,
+        defaultSupportHours: draft.defaultSupportHours,
+        defaultExclusions: splitLineSeparatedList(draft.defaultExclusionsText),
+        status: "draft",
+        items: selectedItems
+      });
       router.push("/pricing");
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to save service package.");
@@ -178,79 +143,27 @@ export default function ServicePackagePage() {
   }
 
   return (
-    <WorkflowShell
-      currentStep="Service Package"
-      title="Service Package"
-      description="Build a minimal package definition that the recommendation engine can evaluate."
-    >
+    <WorkflowShell currentStep="Service Package" title="Service Package" description="Build a minimal package definition that the recommendation engine can evaluate.">
+      {isLoading ? <p>Loading service package...</p> : null}
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
-        <label>
-          Package name
-          <input value={draft.name} onChange={(event) => update("name", event.target.value)} required />
-        </label>
-        <label>
-          Market position
-          <select value={draft.marketPosition} onChange={(event) => update("marketPosition", event.target.value as ServicePackageDraft["marketPosition"])}>
-            <option value="good">Good</option>
-            <option value="better">Better</option>
-            <option value="best">Best</option>
-            <option value="enterprise">Enterprise</option>
-          </select>
-        </label>
-        <label>
-          Description
-          <textarea value={draft.description} onChange={(event) => update("description", event.target.value)} rows={3} required />
-        </label>
-        <label>
-          Target persona
-          <input value={draft.targetPersona} onChange={(event) => update("targetPersona", event.target.value)} required />
-        </label>
-        <label>
-          Default SLA tier
-          <select value={draft.defaultSlaTier} onChange={(event) => update("defaultSlaTier", event.target.value as ServicePackageDraft["defaultSlaTier"])}>
-            <option value="best-effort">Best effort</option>
-            <option value="standard">Standard</option>
-            <option value="priority">Priority</option>
-            <option value="24x7">24x7</option>
-          </select>
-        </label>
-        <label>
-          Default support hours
-          <select value={draft.defaultSupportHours} onChange={(event) => update("defaultSupportHours", event.target.value as ServicePackageDraft["defaultSupportHours"])}>
-            <option value="business-hours">Business hours</option>
-            <option value="extended-hours">Extended hours</option>
-            <option value="24x7">24x7</option>
-          </select>
-        </label>
-        <label>
-          Default exclusions (one per line)
-          <textarea value={draft.defaultExclusionsText} onChange={(event) => update("defaultExclusionsText", event.target.value)} rows={4} />
-        </label>
-        <label>
-          <input type="checkbox" checked={draft.includesSecurityBaseline} onChange={(event) => update("includesSecurityBaseline", event.target.checked)} />
-          Include security baseline by default
-        </label>
-
+        <label>Package name<input value={draft.name} onChange={(event) => update("name", event.target.value)} required /></label>
+        <label>Market position<select value={draft.marketPosition} onChange={(event) => update("marketPosition", event.target.value as ServicePackageDraft["marketPosition"])}><option value="good">Good</option><option value="better">Better</option><option value="best">Best</option><option value="enterprise">Enterprise</option></select></label>
+        <label>Description<textarea value={draft.description} onChange={(event) => update("description", event.target.value)} rows={3} required /></label>
+        <label>Target persona<input value={draft.targetPersona} onChange={(event) => update("targetPersona", event.target.value)} required /></label>
+        <label>Default SLA tier<select value={draft.defaultSlaTier} onChange={(event) => update("defaultSlaTier", event.target.value as ServicePackageDraft["defaultSlaTier"])}><option value="best-effort">Best effort</option><option value="standard">Standard</option><option value="priority">Priority</option><option value="24x7">24x7</option></select></label>
+        <label>Default support hours<select value={draft.defaultSupportHours} onChange={(event) => update("defaultSupportHours", event.target.value as ServicePackageDraft["defaultSupportHours"])}><option value="business-hours">Business hours</option><option value="extended-hours">Extended hours</option><option value="24x7">24x7</option></select></label>
+        <label>Default exclusions (one per line)<textarea value={draft.defaultExclusionsText} onChange={(event) => update("defaultExclusionsText", event.target.value)} rows={4} /></label>
+        <label><input type="checkbox" checked={draft.includesSecurityBaseline} onChange={(event) => update("includesSecurityBaseline", event.target.checked)} /> Include security baseline by default</label>
         <fieldset>
           <legend>Included services</legend>
-          <label><input type="checkbox" checked={draft.includeHelpDesk} onChange={(event) => update("includeHelpDesk", event.target.checked)} /> Managed Help Desk</label><br />
-          <label><input type="checkbox" checked={draft.includeEndpointSecurity} onChange={(event) => update("includeEndpointSecurity", event.target.checked)} /> Endpoint Detection and Response</label><br />
-          <label><input type="checkbox" checked={draft.includeBackup} onChange={(event) => update("includeBackup", event.target.checked)} /> Backup Monitoring</label><br />
-          <label><input type="checkbox" checked={draft.includeMicrosoft365} onChange={(event) => update("includeMicrosoft365", event.target.checked)} /> Microsoft 365 Administration</label><br />
-          <label><input type="checkbox" checked={draft.includeNetworkSecurity} onChange={(event) => update("includeNetworkSecurity", event.target.checked)} /> Network Security Monitoring</label>
+          {serviceDefinitions.map((definition) => (
+            <label key={definition.id}>
+              <input type="checkbox" checked={draft.selectedServiceDefinitionIds.includes(definition.id)} onChange={() => toggleServiceDefinition(definition.id)} /> {definition.name} ({definition.category})
+            </label>
+          ))}
         </fieldset>
-
-        <div>
-          <strong>Selected items:</strong>
-          <ul>
-            {selectedServices.map((item) => (
-              <li key={item.serviceDefinitionId}>{item.serviceDefinitionId}</li>
-            ))}
-          </ul>
-        </div>
-
         {error ? <p role="alert">{error}</p> : null}
-        <button type="submit" disabled={isSaving}>{isSaving ? "Saving..." : "Save and continue"}</button>
+        <button type="submit" disabled={isSaving || isLoading}>{isSaving ? "Saving..." : "Save and continue"}</button>
       </form>
     </WorkflowShell>
   );

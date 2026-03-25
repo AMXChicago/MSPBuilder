@@ -1,4 +1,5 @@
 import type { Repository } from "../common/repository";
+import type { TenantContext } from "../common/types";
 import type { ServicePackage, ServicePackageItem } from "../service-catalog/types";
 
 export interface ServicePackageAggregate extends ServicePackage {
@@ -6,5 +7,5 @@ export interface ServicePackageAggregate extends ServicePackage {
 }
 
 export interface ServicePackageRepository extends Repository<ServicePackageAggregate> {
-  getByOrganizationId(organizationId: string): Promise<ServicePackageAggregate | null>;
+  getByOrganizationId(context: TenantContext): Promise<ServicePackageAggregate | null>;
 }

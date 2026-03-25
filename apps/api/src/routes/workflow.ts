@@ -1,35 +1,51 @@
-import type { FastifyInstance } from "fastify";
-import {
-  upsertBusinessModel,
-  upsertFounderProfile,
-  upsertPricingInput,
-  upsertServicePackage
-} from "../modules/launch-os-store";
+import type { FastifyInstance, FastifyRequest } from "fastify";
+import { workflowService } from "../services/workflow-service";
+import { resolveTenantContext } from "../services/tenant-context";
 import {
   businessModelSchema,
   founderProfileSchema,
   pricingInputSchema,
-  servicePackageSchema
+  servicePackageSchema,
+  workflowStateQuerySchema
 } from "../schemas/launch-os";
 
 export async function registerWorkflowRoutes(app: FastifyInstance) {
-  app.post("/founder", async (request) => {
+  async function saveFounder(request: FastifyRequest) {
     const payload = founderProfileSchema.parse(request.body);
-    return { data: upsertFounderProfile(payload) };
-  });
+    const tenant = await resolveTenantContext(request, payload);
+    return { data: await workflowService.saveFounderProfile(tenant, payload) };
+  }
 
-  app.post("/business-model", async (request) => {
+  async function saveBusinessModel(request: FastifyRequest) {
     const payload = businessModelSchema.parse(request.body);
-    return { data: upsertBusinessModel(payload) };
-  });
+    const tenant = await resolveTenantContext(request, payload);
+    return { data: await workflowService.saveBusinessModel(tenant, payload) };
+  }
 
-  app.post("/service-package", async (request) => {
+  async function saveServicePackage(request: FastifyRequest) {
     const payload = servicePackageSchema.parse(request.body);
-    return { data: upsertServicePackage(payload) };
+    const tenant = await resolveTenantContext(request, payload);
+    return { data: await workflowService.saveServicePackage(tenant, payload) };
+  }
+
+  async function savePricing(request: FastifyRequest) {
+    const payload = pricingInputSchema.parse(request.body);
+    const tenant = await resolveTenantContext(request, payload);
+    return { data: await workflowService.savePricingModel(tenant, payload) };
+  }
+
+  app.get("/workflow/state", async (request) => {
+    const query = workflowStateQuerySchema.parse(request.query);
+    const tenant = await resolveTenantContext(request, query);
+    return { data: await workflowService.getWorkflowState(tenant) };
   });
 
-  app.post("/pricing", async (request) => {
-    const payload = pricingInputSchema.parse(request.body);
-    return { data: upsertPricingInput(payload) };
-  });
+  app.post("/founder", saveFounder);
+  app.put("/founder", saveFounder);
+  app.post("/business-model", saveBusinessModel);
+  app.put("/business-model", saveBusinessModel);
+  app.post("/service-package", saveServicePackage);
+  app.put("/service-package", saveServicePackage);
+  app.post("/pricing", savePricing);
+  app.put("/pricing", savePricing);
 }

@@ -4,13 +4,7 @@ import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { WorkflowShell } from "../../components/workflow/workflow-shell";
-import {
-  ORGANIZATION_ID,
-  STORAGE_KEYS,
-  postJson,
-  readStoredDraft,
-  writeStoredDraft
-} from "../../lib/launch-os";
+import { getWorkflowState, postJson } from "../../lib/launch-os";
 
 interface PricingDraft {
   id?: string;
@@ -47,13 +41,44 @@ const defaultDraft: PricingDraft = {
 export default function PricingPage() {
   const router = useRouter();
   const [draft, setDraft] = useState<PricingDraft>(defaultDraft);
+  const [packageName, setPackageName] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const storedPricing = readStoredDraft(STORAGE_KEYS.pricing, defaultDraft);
-    const storedPackage = readStoredDraft<{ id?: string }>(STORAGE_KEYS.servicePackage, {});
-    setDraft({ ...storedPricing, servicePackageId: storedPricing.servicePackageId ?? storedPackage.id });
+    async function load() {
+      try {
+        const state = await getWorkflowState();
+        setPackageName(state.servicePackage?.name ?? null);
+        if (state.pricingModel) {
+          setDraft({
+            id: state.pricingModel.id,
+            servicePackageId: state.pricingModel.servicePackageId,
+            pricingUnit: state.pricingModel.pricingUnit,
+            monthlyBasePrice: state.pricingModel.monthlyBasePrice,
+            onboardingFee: state.pricingModel.onboardingFee,
+            minimumQuantity: state.pricingModel.minimumQuantity,
+            includedQuantity: state.pricingModel.includedQuantity,
+            overageUnitPrice: state.pricingModel.overageUnitPrice,
+            billingFrequency: state.pricingModel.billingFrequency,
+            contractTermMonths: state.pricingModel.contractTermMonths,
+            passthroughCost: state.pricingModel.passthroughCost,
+            markupPercentage: state.pricingModel.markupPercentage,
+            targetMarginPercent: state.pricingModel.targetMarginPercent,
+            floorMarginPercent: state.pricingModel.floorMarginPercent
+          });
+        } else if (state.servicePackage) {
+          setDraft((current) => ({ ...current, servicePackageId: state.servicePackage?.id }));
+        }
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : "Unable to load pricing state.");
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    void load();
   }, []);
 
   function update<K extends keyof PricingDraft>(key: K, value: PricingDraft[K]) {
@@ -75,29 +100,13 @@ export default function PricingPage() {
       ? Number((((draft.monthlyBasePrice - draft.passthroughCost) / draft.monthlyBasePrice) * 100).toFixed(2))
       : 0;
 
-    const payload = {
-      id: draft.id,
-      organizationId: ORGANIZATION_ID,
-      servicePackageId: draft.servicePackageId,
-      pricingUnit: draft.pricingUnit,
-      currencyCode: "USD",
-      monthlyBasePrice: draft.monthlyBasePrice,
-      onboardingFee: draft.onboardingFee,
-      minimumQuantity: draft.minimumQuantity,
-      includedQuantity: draft.includedQuantity,
-      overageUnitPrice: draft.overageUnitPrice,
-      billingFrequency: draft.billingFrequency,
-      contractTermMonths: draft.contractTermMonths,
-      passthroughCost: draft.passthroughCost,
-      markupPercentage: draft.markupPercentage,
-      effectiveMarginPercent,
-      targetMarginPercent: draft.targetMarginPercent,
-      floorMarginPercent: draft.floorMarginPercent
-    };
-
     try {
-      const response = await postJson<{ data: { id: string; servicePackageId: string } }>("/pricing", payload);
-      writeStoredDraft(STORAGE_KEYS.pricing, { ...draft, id: response.data.id, servicePackageId: response.data.servicePackageId });
+      await postJson("/pricing", {
+        ...draft,
+        servicePackageId: draft.servicePackageId,
+        currencyCode: "USD",
+        effectiveMarginPercent
+      });
       router.push("/recommendation");
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to save pricing.");
@@ -107,71 +116,24 @@ export default function PricingPage() {
   }
 
   return (
-    <WorkflowShell
-      currentStep="Pricing"
-      title="Pricing"
-      description="Enter pricing inputs so the recommendation engine can assess commercial readiness."
-    >
+    <WorkflowShell currentStep="Pricing" title="Pricing" description="Enter pricing inputs so the recommendation engine can assess commercial readiness.">
+      {isLoading ? <p>Loading pricing state...</p> : null}
+      {packageName ? <p>Active service package: {packageName}</p> : null}
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
-        <label>
-          Pricing unit
-          <select value={draft.pricingUnit} onChange={(event) => update("pricingUnit", event.target.value as PricingDraft["pricingUnit"])}>
-            <option value="user">User</option>
-            <option value="device">Device</option>
-            <option value="hybrid">Hybrid</option>
-          </select>
-        </label>
-        <label>
-          Monthly base price
-          <input type="number" min={0} value={draft.monthlyBasePrice} onChange={(event) => update("monthlyBasePrice", Number(event.target.value))} required />
-        </label>
-        <label>
-          Onboarding fee
-          <input type="number" min={0} value={draft.onboardingFee} onChange={(event) => update("onboardingFee", Number(event.target.value))} required />
-        </label>
-        <label>
-          Minimum quantity
-          <input type="number" min={0} value={draft.minimumQuantity} onChange={(event) => update("minimumQuantity", Number(event.target.value))} required />
-        </label>
-        <label>
-          Included quantity
-          <input type="number" min={0} value={draft.includedQuantity} onChange={(event) => update("includedQuantity", Number(event.target.value))} required />
-        </label>
-        <label>
-          Overage unit price
-          <input type="number" min={0} value={draft.overageUnitPrice} onChange={(event) => update("overageUnitPrice", Number(event.target.value))} required />
-        </label>
-        <label>
-          Billing frequency
-          <select value={draft.billingFrequency} onChange={(event) => update("billingFrequency", event.target.value as PricingDraft["billingFrequency"])}>
-            <option value="monthly">Monthly</option>
-            <option value="quarterly">Quarterly</option>
-            <option value="annual">Annual</option>
-          </select>
-        </label>
-        <label>
-          Contract term (months)
-          <input type="number" min={1} value={draft.contractTermMonths} onChange={(event) => update("contractTermMonths", Number(event.target.value))} required />
-        </label>
-        <label>
-          Passthrough cost
-          <input type="number" min={0} value={draft.passthroughCost} onChange={(event) => update("passthroughCost", Number(event.target.value))} required />
-        </label>
-        <label>
-          Markup percentage
-          <input type="number" min={0} max={100} value={draft.markupPercentage} onChange={(event) => update("markupPercentage", Number(event.target.value))} required />
-        </label>
-        <label>
-          Target margin percent
-          <input type="number" min={0} max={100} value={draft.targetMarginPercent} onChange={(event) => update("targetMarginPercent", Number(event.target.value))} required />
-        </label>
-        <label>
-          Floor margin percent
-          <input type="number" min={0} max={100} value={draft.floorMarginPercent} onChange={(event) => update("floorMarginPercent", Number(event.target.value))} required />
-        </label>
-
+        <label>Pricing unit<select value={draft.pricingUnit} onChange={(event) => update("pricingUnit", event.target.value as PricingDraft["pricingUnit"])}><option value="user">User</option><option value="device">Device</option><option value="hybrid">Hybrid</option></select></label>
+        <label>Monthly base price<input type="number" min={0} value={draft.monthlyBasePrice} onChange={(event) => update("monthlyBasePrice", Number(event.target.value))} required /></label>
+        <label>Onboarding fee<input type="number" min={0} value={draft.onboardingFee} onChange={(event) => update("onboardingFee", Number(event.target.value))} required /></label>
+        <label>Minimum quantity<input type="number" min={0} value={draft.minimumQuantity} onChange={(event) => update("minimumQuantity", Number(event.target.value))} required /></label>
+        <label>Included quantity<input type="number" min={0} value={draft.includedQuantity} onChange={(event) => update("includedQuantity", Number(event.target.value))} required /></label>
+        <label>Overage unit price<input type="number" min={0} value={draft.overageUnitPrice} onChange={(event) => update("overageUnitPrice", Number(event.target.value))} required /></label>
+        <label>Billing frequency<select value={draft.billingFrequency} onChange={(event) => update("billingFrequency", event.target.value as PricingDraft["billingFrequency"])}><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option></select></label>
+        <label>Contract term (months)<input type="number" min={1} value={draft.contractTermMonths} onChange={(event) => update("contractTermMonths", Number(event.target.value))} required /></label>
+        <label>Passthrough cost<input type="number" min={0} value={draft.passthroughCost} onChange={(event) => update("passthroughCost", Number(event.target.value))} required /></label>
+        <label>Markup percentage<input type="number" min={0} max={100} value={draft.markupPercentage} onChange={(event) => update("markupPercentage", Number(event.target.value))} required /></label>
+        <label>Target margin percent<input type="number" min={0} max={100} value={draft.targetMarginPercent} onChange={(event) => update("targetMarginPercent", Number(event.target.value))} required /></label>
+        <label>Floor margin percent<input type="number" min={0} max={100} value={draft.floorMarginPercent} onChange={(event) => update("floorMarginPercent", Number(event.target.value))} required /></label>
         {error ? <p role="alert">{error}</p> : null}
-        <button type="submit" disabled={isSaving}>{isSaving ? "Saving..." : "Save and continue"}</button>
+        <button type="submit" disabled={isSaving || isLoading}>{isSaving ? "Saving..." : "Save and continue"}</button>
       </form>
     </WorkflowShell>
   );
