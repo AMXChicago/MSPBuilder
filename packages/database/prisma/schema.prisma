@@ -1,0 +1,372 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  OPERATOR
+  ADVISOR
+}
+
+enum LifecycleStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum ServiceCategory {
+  HELPDESK
+  SECURITY
+  NETWORK
+  COMPLIANCE
+  CLOUD
+  VCIO
+}
+
+enum PackageTier {
+  GOOD
+  BETTER
+  BEST
+  ENTERPRISE
+}
+
+enum PricingStrategy {
+  PER_USER
+  PER_DEVICE
+  FLAT_RATE
+  HYBRID
+}
+
+enum VendorCategory {
+  PSA
+  RMM
+  MDR
+  BACKUP
+  DOCUMENTATION
+  EMAIL_SECURITY
+  IDENTITY
+}
+
+enum TemplateKind {
+  CONTRACT
+  PROPOSAL
+  SOP
+  CHECKLIST
+  MARKETING
+}
+
+enum BaselineCategory {
+  IDENTITY
+  ENDPOINT
+  EMAIL
+  NETWORK
+  BACKUP
+  MONITORING
+}
+
+enum KpiUnit {
+  CURRENCY
+  PERCENT
+  COUNT
+  DAYS
+}
+
+model User {
+  id              String               @id @default(cuid())
+  email           String               @unique
+  fullName        String
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  memberships     OrganizationMember[]
+  founderProfiles FounderProfile[]
+}
+
+model Organization {
+  id                       String                    @id @default(cuid())
+  name                     String
+  slug                     String                    @unique
+  status                   OrganizationStatus        @default(ACTIVE)
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  members                  OrganizationMember[]
+  founderProfiles          FounderProfile[]
+  businessModels           BusinessModel[]
+  serviceDefinitions       ServiceDefinition[]
+  servicePackages          ServicePackage[]
+  pricingModels            PricingModel[]
+  vendorCosts              VendorCostProfile[]
+  vendors                  Vendor[]
+  stackRecommendations     StackRecommendation[]
+  templates                TemplateAsset[]
+  onboardingChecklists     OnboardingChecklist[]
+  onboardingChecklistSteps OnboardingChecklistStep[]
+  sopDocuments             SopDocument[]
+  securityBaselines        SecurityBaseline[]
+  launchCampaigns          LaunchCampaign[]
+  kpiRecords               KpiRecord[]
+}
+
+model OrganizationMember {
+  id             String         @id @default(cuid())
+  organizationId String
+  userId         String
+  role           MembershipRole
+  createdAt      DateTime       @default(now())
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+}
+
+model FounderProfile {
+  id                       String       @id @default(cuid())
+  organizationId           String
+  userId                   String
+  roleTitle                String
+  priorExperienceYears     Int
+  targetGeo                String
+  serviceMotion            String
+  maturityLevel            String
+  salesConfidence          Int
+  technicalDepth           Int
+  preferredEngagementModel String
+  createdAt                DateTime     @default(now())
+  updatedAt                DateTime     @updatedAt
+  organization             Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user                     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model BusinessModel {
+  id                       String                @id @default(cuid())
+  organizationId           String
+  name                     String
+  targetVerticals          String[]
+  targetCompanySizes       String[]
+  revenueStrategy          String
+  primaryDeliveryMode      String
+  targetGrossMarginPercent Decimal               @db.Decimal(5, 2)
+  currencyCode             String                @default("USD")
+  status                   LifecycleStatus       @default(DRAFT)
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+  organization             Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stackRecommendations     StackRecommendation[]
+}
+
+model ServiceDefinition {
+  id                 String                 @id @default(cuid())
+  organizationId     String
+  name               String
+  category           ServiceCategory
+  description        String
+  baseUnit           String
+  status             LifecycleStatus        @default(DRAFT)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  organization       Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  packageServices    ServicePackageService[]
+  vendorCostProfiles VendorCostProfile[]
+}
+
+model ServicePackage {
+  id                       String                    @id @default(cuid())
+  organizationId           String
+  name                     String
+  marketPosition           PackageTier
+  description              String
+  targetPersona            String
+  includesSecurityBaseline Boolean                   @default(false)
+  status                   LifecycleStatus           @default(DRAFT)
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  organization             Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  services                 ServicePackageService[]
+  pricingModels            PricingModel[]
+  stackRecommendations     StackRecommendation[]
+}
+
+model ServicePackageService {
+  servicePackageId    String
+  serviceDefinitionId String
+  sortOrder           Int
+  servicePackage      ServicePackage    @relation(fields: [servicePackageId], references: [id], onDelete: Cascade)
+  serviceDefinition   ServiceDefinition @relation(fields: [serviceDefinitionId], references: [id], onDelete: Cascade)
+
+  @@id([servicePackageId, serviceDefinitionId])
+}
+
+model PricingModel {
+  id                  String          @id @default(cuid())
+  organizationId      String
+  servicePackageId    String
+  pricingStrategy     PricingStrategy
+  currencyCode        String          @default("USD")
+  monthlyBasePrice    Decimal         @db.Decimal(10, 2)
+  onboardingFee       Decimal         @db.Decimal(10, 2)
+  targetMarginPercent Decimal         @db.Decimal(5, 2)
+  floorMarginPercent  Decimal         @db.Decimal(5, 2)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  organization        Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  servicePackage      ServicePackage  @relation(fields: [servicePackageId], references: [id], onDelete: Cascade)
+}
+
+model Vendor {
+  id                  String                      @id @default(cuid())
+  organizationId      String
+  name                String
+  category            VendorCategory
+  websiteUrl          String?
+  msspFriendly        Boolean                     @default(false)
+  supportsMultiTenant Boolean                     @default(false)
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
+  organization        Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  costProfiles        VendorCostProfile[]
+  stackLinks          StackRecommendationVendor[]
+}
+
+model VendorCostProfile {
+  id                  String             @id @default(cuid())
+  organizationId      String
+  vendorId            String
+  serviceDefinitionId String?
+  costBasis           String
+  unitCost            Decimal            @db.Decimal(10, 2)
+  notes               String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  vendor              Vendor             @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  serviceDefinition   ServiceDefinition? @relation(fields: [serviceDefinitionId], references: [id], onDelete: SetNull)
+}
+
+model StackRecommendation {
+  id                 String                      @id @default(cuid())
+  organizationId     String
+  businessModelId    String
+  servicePackageId   String?
+  rationale          String[]
+  confidenceScore    Decimal                     @db.Decimal(4, 3)
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+  organization       Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  businessModel      BusinessModel               @relation(fields: [businessModelId], references: [id], onDelete: Cascade)
+  servicePackage     ServicePackage?             @relation(fields: [servicePackageId], references: [id], onDelete: SetNull)
+  vendors            StackRecommendationVendor[]
+}
+
+model StackRecommendationVendor {
+  stackRecommendationId String
+  vendorId              String
+  stackRecommendation   StackRecommendation @relation(fields: [stackRecommendationId], references: [id], onDelete: Cascade)
+  vendor                Vendor              @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@id([stackRecommendationId, vendorId])
+}
+
+model TemplateAsset {
+  id             String          @id @default(cuid())
+  organizationId String
+  name           String
+  kind           TemplateKind
+  slug           String
+  version        String
+  status         LifecycleStatus @default(DRAFT)
+  variables      String[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, slug, version])
+}
+
+model OnboardingChecklist {
+  id             String                    @id @default(cuid())
+  organizationId String
+  name           String
+  audience       String
+  status         LifecycleStatus           @default(DRAFT)
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  steps          OnboardingChecklistStep[]
+}
+
+model OnboardingChecklistStep {
+  id             String              @id @default(cuid())
+  organizationId String
+  checklistId    String
+  title          String
+  description    String
+  sortOrder      Int
+  ownerRole      String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  checklist      OnboardingChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+}
+
+model SopDocument {
+  id             String          @id @default(cuid())
+  organizationId String
+  title          String
+  serviceArea    String
+  version        String
+  status         LifecycleStatus @default(DRAFT)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model SecurityBaseline {
+  id             String           @id @default(cuid())
+  organizationId String
+  name           String
+  category       BaselineCategory
+  controlCode    String
+  requirement    String
+  status         LifecycleStatus  @default(DRAFT)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model LaunchCampaign {
+  id             String          @id @default(cuid())
+  organizationId String
+  name           String
+  channel        String
+  offer          String
+  status         LifecycleStatus @default(DRAFT)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model KpiRecord {
+  id             String       @id @default(cuid())
+  organizationId String
+  metricCode     String
+  metricName     String
+  periodStart    DateTime
+  periodEnd      DateTime
+  value          Decimal      @db.Decimal(14, 4)
+  unit           KpiUnit
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, metricCode, periodStart, periodEnd])
+}

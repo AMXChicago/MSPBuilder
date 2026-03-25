@@ -1,0 +1,18 @@
+{
+  "name": "msp-mssp-launch-os",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm --parallel --filter @launch-os/web --filter @launch-os/api dev",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @launch-os/database db:generate",
+    "db:migrate": "pnpm --filter @launch-os/database db:migrate"
+  }
+}
