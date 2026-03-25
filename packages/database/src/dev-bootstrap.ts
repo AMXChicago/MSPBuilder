@@ -7,6 +7,7 @@ import { toPrismaLifecycleStatus, toPrismaVendorCategory } from "./converters";
 export interface DevelopmentTenantBootstrapResult extends TenantContext {
   organizationName: string;
   userEmail: string;
+  userFullName: string;
 }
 
 const DEV_ORGANIZATION_SLUG = "launch-os-dev";
@@ -107,6 +108,8 @@ export async function ensureDevelopmentTenant(prisma: PrismaClient): Promise<Dev
     organizationId: organization.id,
     userId: user.id,
     organizationName: organization.name,
-    userEmail: user.email
+    userEmail: user.email,
+    userFullName: user.fullName
   };
 }
+

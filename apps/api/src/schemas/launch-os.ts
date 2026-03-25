@@ -1,14 +1,7 @@
 import { z } from "zod";
 
-export const tenantContextSchema = z.object({
-  organizationId: z.string().min(1).optional(),
-  userId: z.string().min(1).optional()
-});
-
 export const founderProfileSchema = z.object({
   id: z.string().optional(),
-  organizationId: z.string().min(1).optional(),
-  userId: z.string().min(1).optional(),
   fullName: z.string().min(1),
   roleTitle: z.string().min(1),
   priorExperienceYears: z.number().int().min(0),
@@ -24,7 +17,6 @@ export const founderProfileSchema = z.object({
 
 export const businessModelSchema = z.object({
   id: z.string().optional(),
-  organizationId: z.string().min(1).optional(),
   name: z.string().min(1),
   businessType: z.enum(["msp", "mssp", "hybrid", "co-managed"]),
   targetVerticals: z.array(z.string().min(1)).min(1),
@@ -56,7 +48,6 @@ export const servicePackageItemSchema = z.object({
 
 export const servicePackageSchema = z.object({
   id: z.string().optional(),
-  organizationId: z.string().min(1).optional(),
   name: z.string().min(1),
   marketPosition: z.enum(["good", "better", "best", "enterprise"]),
   description: z.string().min(1),
@@ -73,7 +64,6 @@ export const servicePackageSchema = z.object({
 
 export const pricingInputSchema = z.object({
   id: z.string().optional(),
-  organizationId: z.string().min(1).optional(),
   servicePackageId: z.string().min(1),
   pricingUnit: z.enum(["user", "device", "hybrid"]),
   currencyCode: z.literal("USD").default("USD"),
@@ -93,5 +83,5 @@ export const pricingInputSchema = z.object({
   updatedAt: z.string().optional()
 });
 
-export const recommendationPreviewQuerySchema = tenantContextSchema;
-export const workflowStateQuerySchema = tenantContextSchema;
+export const recommendationPreviewQuerySchema = z.object({});
+export const workflowStateQuerySchema = z.object({});

@@ -17,6 +17,22 @@ export interface TenantContext {
   userId?: EntityId;
 }
 
+export type MembershipRole = "owner" | "admin" | "operator" | "advisor";
+export type AuthenticationSource = "session" | "development-bootstrap";
+
+export interface AuthenticatedUserContext {
+  userId: EntityId;
+  email: string;
+  fullName: string;
+}
+
+export interface AuthenticatedTenantContext extends TenantContext {
+  userId: EntityId;
+  membershipRole: MembershipRole;
+  authenticationSource: AuthenticationSource;
+  authenticatedUser: AuthenticatedUserContext;
+}
+
 export interface SoftDeletable {
   archivedAt?: ISODateString;
 }

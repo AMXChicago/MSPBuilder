@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type {
+  AuthenticatedTenantContext,
   BusinessModel,
   BusinessModelRepository,
   FounderProfile,
@@ -203,9 +204,19 @@ function createHarness() {
   };
 }
 
-const tenant = { organizationId: "org-a", userId: "user-a" };
+const tenant: AuthenticatedTenantContext = {
+  organizationId: "org-a",
+  userId: "user-a",
+  membershipRole: "owner",
+  authenticationSource: "session",
+  authenticatedUser: {
+    userId: "user-a",
+    email: "owner@orga.test",
+    fullName: "Org A Owner"
+  }
+};
 
-test("workflow service returns saved workflow state for a tenant", async () => {
+test("workflow service returns saved workflow state for an authenticated tenant", async () => {
   const { workflowService } = createHarness();
 
   await workflowService.saveFounderProfile(tenant, {
@@ -222,10 +233,11 @@ test("workflow service returns saved workflow state for a tenant", async () => {
 
   const state = await workflowService.getWorkflowState(tenant);
   assert.equal(state.founderProfile?.fullName, "Alex Founder");
+  assert.equal(state.tenant.userId, "user-a");
   assert.equal(state.referenceData.serviceDefinitions.length, 2);
 });
 
-test("workflow service generates recommendation preview from persisted records", async () => {
+test("workflow service generates recommendation preview from persisted tenant records", async () => {
   const { workflowService, resultRepository, scenarioRepository } = createHarness();
 
   const businessModel = await workflowService.saveBusinessModel(tenant, {

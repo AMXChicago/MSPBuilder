@@ -1,7 +1,11 @@
 import type { FastifyInstance, FastifyPluginOptions, FastifyRequest } from "fastify";
 import { ok } from "../lib/api-response";
 import { workflowService as defaultWorkflowService } from "../services/workflow-service";
-import { resolveTenantContext } from "../services/tenant-context";
+import {
+  getAuthenticatedTenantContext,
+  tenantContextResolver as defaultTenantContextResolver,
+  type TenantContextResolver
+} from "../services/tenant-context";
 import {
   businessModelSchema,
   founderProfileSchema,
@@ -12,38 +16,44 @@ import {
 
 interface WorkflowRouteOptions extends FastifyPluginOptions {
   workflowService?: typeof defaultWorkflowService;
+  tenantContextResolver?: TenantContextResolver;
 }
 
 export async function registerWorkflowRoutes(app: FastifyInstance, options: WorkflowRouteOptions) {
   const workflowService = options.workflowService ?? defaultWorkflowService;
+  const tenantContextResolver = options.tenantContextResolver ?? defaultTenantContextResolver;
+
+  app.addHook("preHandler", async (request) => {
+    request.authenticatedTenantContext = await tenantContextResolver.requireAuthenticatedTenantContext(request);
+  });
 
   async function saveFounder(request: FastifyRequest) {
     const payload = founderProfileSchema.parse(request.body);
-    const tenant = await resolveTenantContext(request, payload);
+    const tenant = getAuthenticatedTenantContext(request);
     return ok(await workflowService.saveFounderProfile(tenant, payload));
   }
 
   async function saveBusinessModel(request: FastifyRequest) {
     const payload = businessModelSchema.parse(request.body);
-    const tenant = await resolveTenantContext(request, payload);
+    const tenant = getAuthenticatedTenantContext(request);
     return ok(await workflowService.saveBusinessModel(tenant, payload));
   }
 
   async function saveServicePackage(request: FastifyRequest) {
     const payload = servicePackageSchema.parse(request.body);
-    const tenant = await resolveTenantContext(request, payload);
+    const tenant = getAuthenticatedTenantContext(request);
     return ok(await workflowService.saveServicePackage(tenant, payload));
   }
 
   async function savePricing(request: FastifyRequest) {
     const payload = pricingInputSchema.parse(request.body);
-    const tenant = await resolveTenantContext(request, payload);
+    const tenant = getAuthenticatedTenantContext(request);
     return ok(await workflowService.savePricingModel(tenant, payload));
   }
 
   app.get("/workflow/state", async (request) => {
-    const query = workflowStateQuerySchema.parse(request.query);
-    const tenant = await resolveTenantContext(request, query);
+    workflowStateQuerySchema.parse(request.query);
+    const tenant = getAuthenticatedTenantContext(request);
     return ok(await workflowService.getWorkflowState(tenant));
   });
 

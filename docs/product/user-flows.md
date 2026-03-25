@@ -1,56 +1,58 @@
 # User Flows
 
-## Persisted Founder Workflow
-1. Operator starts at `/founder`.
-2. Page loads the saved tenant workflow state from `GET /workflow/state`.
-3. Founder profile is saved with `POST /founder` or `PUT /founder`.
-4. Business model is saved with `POST /business-model` or `PUT /business-model`.
-5. Service package is saved with `POST /service-package` or `PUT /service-package`.
-6. Pricing is saved with `POST /pricing` or `PUT /pricing`.
-7. Recommendation page calls `GET /recommendation/preview`.
-8. API rebuilds preview output from persisted records, persists the scenario/result, and returns the latest explainable recommendation.
+## Authenticated Founder Workflow
+1. Operator authenticates and receives a bearer session token.
+2. Operator selects an organization context.
+3. Client sends workflow requests with:
+   - `Authorization: Bearer <token>`
+   - `x-organization-id: <organization-id>`
+4. API resolves the current user from the session token.
+5. API validates that the user belongs to the requested organization.
+6. Founder, business model, service package, and pricing records are saved only within that tenant.
+7. Recommendation preview rebuilds from persisted records for that same authenticated tenant.
 
-## Operator Testing Goals
-This flow is now designed for real internal testing, not just architecture validation.
+## Tenant-Aware Workflow Behavior
+The active workflow now behaves like a real multi-tenant SaaS path instead of relying on a dev shortcut.
 
-What should work reliably:
-- each step reloads previously saved state
-- saves update existing tenant records cleanly
-- refresh does not lose progress
-- back and forward navigation preserve the saved workflow record set
-- recommendation preview always reflects the latest saved backend state
+What is enforced:
+- unauthenticated requests are rejected
+- requests for organizations outside the user membership set are rejected
+- workflow state is loaded only for the authenticated tenant
+- recommendation preview reads only persisted records for the authenticated tenant
+- route handlers do not implement tenant resolution themselves; they rely on one shared auth and membership path
 
 ## Recommendation Preview Behavior
-Recommendation output now emphasizes operator readability.
+Recommendation preview remains read-mostly and explainable.
 
-The page shows:
-- overall score
-- readiness level
-- risk level
-- confidence level and score
-- summary
-- missing-information warnings when the workflow is incomplete
-- grouped reasons by pricing, package, stack, and security
-- top action items
-- recommended next steps
+For an authenticated tenant, the API:
+- loads the latest persisted founder workflow records
+- builds a recommendation scenario snapshot
+- runs the rules engine
+- persists the recommendation scenario and unified result
+- returns grouped reasoning, action items, next steps, and missing-information warnings
 
-## Missing Information Handling
-If key workflow inputs are incomplete or inconsistent, the preview now:
-- lists missing sections
-- shows warning messages
-- lowers confidence
-- prevents the summary from sounding falsely launch-ready
+## Development Fallback
+A development fallback is still available for local work, but it is no longer silent.
 
-This is important because internal operators need to know when the preview is incomplete versus when the business design is genuinely weak.
+It is only allowed when:
+- the server is not running in production mode
+- `AUTH_ALLOW_DEV_FALLBACK=true`
+- the request explicitly opts in to development auth behavior
 
-## Tenant-Aware Flow Behavior
-- Every request resolves a tenant context.
-- Tenant context can come from headers or a local development bootstrap fallback.
-- All saved records belong to one organization.
-- Workflow state and recommendation preview are always loaded for the active tenant only.
+This keeps local setup practical without letting production requests drift into a fake tenant automatically.
+
+## Future Role Expansion
+Current authorization is membership-based. Future role expansion should plug in after authenticated tenant resolution.
+
+Planned extension point:
+- resolve session
+- resolve membership
+- evaluate role policy for route or action
+- continue into workflow service
+
+This keeps role-specific authorization separate from both auth verification and business workflow logic.
 
 ## Known Limitations
-- The current UX is intentionally plain and does not yet include production-ready operator ergonomics.
-- Auth-backed tenant resolution is not integrated yet.
-- Recommendation history views and scenario comparison are still pending.
-- Vendor suggestions are explainable, but the current UI still keeps the presentation minimal.
+- The web app still needs a real login/session UX wired to these authenticated API requirements.
+- Session issuance, logout, and revocation flows are not yet exposed to operators.
+- Fine-grained RBAC is not implemented yet beyond membership validation.

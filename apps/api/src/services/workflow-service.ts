@@ -23,7 +23,7 @@ import type {
   RecommendationScenarioRepository,
   ServicePackageAggregate,
   ServicePackageRepository,
-  TenantContext
+  AuthenticatedTenantContext
 } from "@launch-os/domain";
 import { evaluateRecommendationPreview } from "@launch-os/rules-engine";
 import type { PrismaClient } from "@prisma/client";
@@ -37,7 +37,7 @@ const AVAILABLE_BASELINES = [
 ] as const;
 
 export interface WorkflowStateResponse {
-  tenant: TenantContext;
+  tenant: AuthenticatedTenantContext;
   founderProfile: FounderProfile | null;
   businessModel: BusinessModel | null;
   servicePackage: ServicePackageAggregate | null;
@@ -137,7 +137,7 @@ interface SavePricingModelInput {
 export class LaunchOsWorkflowService {
   constructor(private readonly deps: WorkflowServiceDependencies) {}
 
-  async saveFounderProfile(context: TenantContext, input: SaveFounderProfileInput) {
+  async saveFounderProfile(context: AuthenticatedTenantContext, input: SaveFounderProfileInput) {
     const userId = input.userId ?? context.userId;
 
     if (!userId) {
@@ -162,7 +162,7 @@ export class LaunchOsWorkflowService {
     });
   }
 
-  async saveBusinessModel(context: TenantContext, input: SaveBusinessModelInput) {
+  async saveBusinessModel(context: AuthenticatedTenantContext, input: SaveBusinessModelInput) {
     return this.deps.businessModels.save(context, {
       id: input.id ?? randomUUID(),
       organizationId: context.organizationId,
@@ -183,7 +183,7 @@ export class LaunchOsWorkflowService {
     });
   }
 
-  async saveServicePackage(context: TenantContext, input: SaveServicePackageInput) {
+  async saveServicePackage(context: AuthenticatedTenantContext, input: SaveServicePackageInput) {
     const packageId = input.id ?? randomUUID();
     return this.deps.servicePackages.save(context, {
       id: packageId,
@@ -218,7 +218,7 @@ export class LaunchOsWorkflowService {
     });
   }
 
-  async savePricingModel(context: TenantContext, input: SavePricingModelInput) {
+  async savePricingModel(context: AuthenticatedTenantContext, input: SavePricingModelInput) {
     return this.deps.pricingModels.save(context, {
       id: input.id ?? randomUUID(),
       organizationId: context.organizationId,
@@ -242,7 +242,7 @@ export class LaunchOsWorkflowService {
     });
   }
 
-  async getWorkflowState(context: TenantContext): Promise<WorkflowStateResponse> {
+  async getWorkflowState(context: AuthenticatedTenantContext): Promise<WorkflowStateResponse> {
     const [founderProfile, businessModel, servicePackage, pricingModel, latestScenario, latestRecommendation, serviceDefinitionRecords, vendorRecords] = await Promise.all([
       this.deps.founderProfiles.getByOrganizationId(context),
       this.deps.businessModels.getByOrganizationId(context),
@@ -283,7 +283,7 @@ export class LaunchOsWorkflowService {
     };
   }
 
-  async generateRecommendationPreview(context: TenantContext) {
+  async generateRecommendationPreview(context: AuthenticatedTenantContext) {
     const state = await this.getWorkflowState(context);
     const timestamp = new Date().toISOString();
     const serviceDefinitionById = new Map(state.referenceData.serviceDefinitions.map((definition) => [definition.id, definition]));
@@ -520,3 +520,4 @@ export const workflowService = new LaunchOsWorkflowService({
   recommendationScenarios: new PrismaRecommendationScenarioRepository(prisma),
   recommendationResults: new PrismaRecommendationResultRepository(prisma)
 });
+

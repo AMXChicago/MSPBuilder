@@ -4,10 +4,10 @@
 MSP/MSSP Launch OS
 
 ## Current Phase
-Persistence / Tenant-Aware Workflow Foundation
+Authentication / Membership-Based Tenant Resolution
 
 ## Goal Of This Phase
-Replace temporary workflow state with Prisma-backed persistence so the current founder -> business model -> service package -> pricing -> recommendation flow behaves like a real multi-tenant SaaS foundation.
+Replace the development tenant fallback with real authenticated tenant resolution so workflow reads and writes are organization-scoped, membership-checked, and safe for production-style multi-tenant access.
 
 ## MVP Scope
 ### In MVP
@@ -59,20 +59,20 @@ Replace temporary workflow state with Prisma-backed persistence so the current f
 - KPI Tracking
 
 ## Major Deliverables In This Pass
-1. Implement Prisma-backed repository adapters for workflow entities and recommendation persistence
-2. Enforce organization scoping in repositories and API routes
-3. Add application services for save, load, and recommendation generation flows
-4. Add workflow-state retrieval and dev tenant bootstrap for local development
-5. Update the web flow to load persisted state and survive refreshes
-6. Add tests for repository behavior, tenant scoping, and persisted recommendation generation
-7. Update architecture and product documentation for persistence
+1. Add a production-appropriate authentication layer for API requests
+2. Resolve tenant context from authenticated user sessions plus organization membership
+3. Enforce reusable authorization across workflow and recommendation routes
+4. Isolate the development fallback behind explicit development-only configuration
+5. Tighten service and repository entry points around authenticated tenant context
+6. Add tests for unauthenticated, unauthorized, cross-tenant, and valid tenant-scoped access
+7. Update architecture and product documentation for authenticated multi-tenant behavior
 
 ## Non-Goals For This Pass
 - polished UI or design work
-- live auth provider integration
+- full RBAC beyond membership-role capture
 - production deployment automation
 - advanced analytics or reporting surfaces
-- non-workflow product modules beyond the first persisted flow
+- non-workflow product modules beyond authenticated workflow access
 
 ## Guiding Principle
-Help users build a profitable, operational MSP/MSSP using centralized logic, durable tenant-aware persistence, and reusable domain primitives rather than ad hoc screens and transient state.
+Help users build a profitable, operational MSP/MSSP using centralized logic, authenticated tenant boundaries, and reusable domain primitives rather than ad hoc screens, transient state, or hidden dev shortcuts.
