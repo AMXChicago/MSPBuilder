@@ -4,15 +4,17 @@
 MSP/MSSP Launch OS
 
 ## Current Phase
-Foundation / Architecture / Domain Correction
+Foundation / Architecture / First End-to-End Flow
 
 ## Goal Of This Phase
-Correct and deepen the core MSP/MSSP domain model with:
-- a first-class recommendation scenario that stores all recommendation inputs
-- MSP-specific pricing model fields that support margin and markup analysis
-- service package composition rich enough for real managed-service offers
-- business model posture fields that materially influence recommendations
-- rules-engine inputs that depend on domain snapshots, not UI-facing models
+Connect the first usable end-to-end workflow from:
+- founder input
+- business model input
+- service package input
+- pricing input
+- recommendation preview output
+
+using the existing API and rules engine with minimal UI only
 
 ## MVP Scope
 ### In MVP
@@ -61,18 +63,17 @@ Correct and deepen the core MSP/MSSP domain model with:
 - KPI Tracking
 
 ## Major Deliverables In This Pass
-1. Introduce a first-class recommendation scenario model with explicit snapshots and constraints
-2. Upgrade pricing, service package composition, and business model schemas for MSP/MSSP specificity
-3. Align shared domain contracts and repository interfaces with the corrected schema
-4. Strengthen rules-engine context definitions so future scoring plugs into stable domain inputs
-5. Update architecture documentation to explain why these domain changes exist
+1. Add minimal workflow pages for founder, business model, service package, pricing, and recommendation preview
+2. Expose simple API routes for the workflow inputs
+3. Connect frontend form submissions to the API and recommendation preview endpoint
+4. Add loading and error handling for the workflow
+5. Update product flow documentation for the MVP path
 
 ## Non-Goals For This Pass
-- UI implementation work
+- polished UI or design work
 - live auth integration
 - real payment flows
 - production deployment automation
-- full recommendation scoring logic
 - production repository implementations
 
 ## Guiding Principle

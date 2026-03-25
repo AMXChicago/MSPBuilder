@@ -4,6 +4,7 @@ import Fastify from "fastify";
 import { registerHealthRoutes } from "./routes/health";
 import { registerLaunchOsRoutes } from "./routes/internal/launch-os";
 import { registerRecommendationRoutes } from "./routes/recommendation";
+import { registerWorkflowRoutes } from "./routes/workflow";
 
 export function createApp() {
   const app = Fastify({
@@ -16,6 +17,7 @@ export function createApp() {
   app.register(sensible);
   app.register(registerHealthRoutes, { prefix: "/health" });
   app.register(registerLaunchOsRoutes, { prefix: "/internal" });
+  app.register(registerWorkflowRoutes);
   app.register(registerRecommendationRoutes, { prefix: "/recommendation" });
 
   return app;
