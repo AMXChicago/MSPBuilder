@@ -4,10 +4,10 @@
 MSP/MSSP Launch OS
 
 ## Current Phase
-Authentication / Membership-Based Tenant Resolution
+Local Development Auth Bootstrap / Workflow Runtime Wiring
 
 ## Goal Of This Phase
-Replace the development tenant fallback with real authenticated tenant resolution so workflow reads and writes are organization-scoped, membership-checked, and safe for production-style multi-tenant access.
+Make the founder workflow run locally without manual header hacking by wiring route registration, development-only session bootstrap, and centralized frontend auth context attachment while keeping production behavior strict.
 
 ## MVP Scope
 ### In MVP
@@ -59,13 +59,12 @@ Replace the development tenant fallback with real authenticated tenant resolutio
 - KPI Tracking
 
 ## Major Deliverables In This Pass
-1. Add a production-appropriate authentication layer for API requests
-2. Resolve tenant context from authenticated user sessions plus organization membership
-3. Enforce reusable authorization across workflow and recommendation routes
-4. Isolate the development fallback behind explicit development-only configuration
-5. Tighten service and repository entry points around authenticated tenant context
-6. Add tests for unauthenticated, unauthorized, cross-tenant, and valid tenant-scoped access
-7. Update architecture and product documentation for authenticated multi-tenant behavior
+1. Verify workflow and recommendation routes are registered from the API runtime entrypoint
+2. Add a development-only auth bootstrap endpoint that can mint a usable local session
+3. Centralize frontend auth header attachment for workflow and recommendation requests
+4. Initialize local dev session automatically before the founder workflow loads persisted state
+5. Add tests for route registration, dev bootstrap behavior, and production auth rejection
+6. Update local-run documentation and environment requirements
 
 ## Non-Goals For This Pass
 - polished UI or design work
@@ -75,4 +74,4 @@ Replace the development tenant fallback with real authenticated tenant resolutio
 - non-workflow product modules beyond authenticated workflow access
 
 ## Guiding Principle
-Help users build a profitable, operational MSP/MSSP using centralized logic, authenticated tenant boundaries, and reusable domain primitives rather than ad hoc screens, transient state, or hidden dev shortcuts.
+Keep production auth strict while removing avoidable friction in local development through one explicit development bootstrap path and one centralized client auth helper.

@@ -10,12 +10,25 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@launch-os/domain": ["../../packages/domain/src"],
-      "@launch-os/rules-engine": ["../../packages/rules-engine/src"],
-      "@launch-os/templates": ["../../packages/templates/src"],
-      "@launch-os/database": ["../../packages/database/src"]
-    }
+      "@/*": [
+        "./src/*"
+      ],
+      "@launch-os/domain": [
+        "../../packages/domain/src"
+      ],
+      "@launch-os/rules-engine": [
+        "../../packages/rules-engine/src"
+      ],
+      "@launch-os/templates": [
+        "../../packages/templates/src"
+      ],
+      "@launch-os/database": [
+        "../../packages/database/src"
+      ]
+    },
+    "allowJs": true,
+    "noEmit": true,
+    "isolatedModules": true
   },
   "include": [
     "next-env.d.ts",
@@ -23,5 +36,7 @@
     "**/*.tsx",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }

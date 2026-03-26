@@ -59,23 +59,35 @@ export class PrismaPricingModelRepository implements PricingModelRepository {
       throw new Error("Pricing model does not belong to the active organization.");
     }
 
+    const monthlyBasePrice = toPrismaDecimal(model.monthlyBasePrice);
+    const onboardingFee = toPrismaDecimal(model.onboardingFee);
+    const overageUnitPrice = toPrismaDecimal(model.overageUnitPrice);
+    const passthroughCost = toPrismaDecimal(model.passthroughCost);
+    const markupPercentage = toPrismaDecimal(model.markupPercentage);
+    const targetMarginPercent = toPrismaDecimal(model.targetMarginPercent);
+    const floorMarginPercent = toPrismaDecimal(model.floorMarginPercent);
+
+    if (!monthlyBasePrice || !onboardingFee || !overageUnitPrice || !passthroughCost || !markupPercentage || !targetMarginPercent || !floorMarginPercent) {
+      throw new Error("Pricing model contains missing required decimal values.");
+    }
+
     const data = {
       organizationId: context.organizationId,
       servicePackageId: model.servicePackageId,
       pricingUnit: toPrismaPricingUnit(model.pricingUnit),
       currencyCode: model.currencyCode,
-      monthlyBasePrice: toPrismaDecimal(model.monthlyBasePrice),
-      onboardingFee: toPrismaDecimal(model.onboardingFee),
+      monthlyBasePrice,
+      onboardingFee,
       minimumQuantity: model.minimumQuantity,
       includedQuantity: model.includedQuantity,
-      overageUnitPrice: toPrismaDecimal(model.overageUnitPrice),
+      overageUnitPrice,
       billingFrequency: toPrismaBillingFrequency(model.billingFrequency),
       contractTermMonths: model.contractTermMonths,
-      passthroughCost: toPrismaDecimal(model.passthroughCost),
-      markupPercentage: toPrismaDecimal(model.markupPercentage),
-      effectiveMarginPercent: toPrismaDecimal(model.effectiveMarginPercent),
-      targetMarginPercent: toPrismaDecimal(model.targetMarginPercent),
-      floorMarginPercent: toPrismaDecimal(model.floorMarginPercent)
+      passthroughCost,
+      markupPercentage,
+      ...(model.effectiveMarginPercent !== undefined ? { effectiveMarginPercent: toPrismaDecimal(model.effectiveMarginPercent) } : {}),
+      targetMarginPercent,
+      floorMarginPercent
     };
 
     const record = existing

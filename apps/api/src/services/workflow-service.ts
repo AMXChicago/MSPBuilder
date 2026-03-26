@@ -8,7 +8,8 @@ import {
   PrismaRecommendationScenarioRepository,
   PrismaServicePackageRepository,
   fromPrismaServiceDefinition,
-  fromPrismaVendor
+  fromPrismaVendor,
+  type DatabasePrismaClient
 } from "@launch-os/database";
 import type {
   BusinessModel,
@@ -26,7 +27,6 @@ import type {
   AuthenticatedTenantContext
 } from "@launch-os/domain";
 import { evaluateRecommendationPreview } from "@launch-os/rules-engine";
-import type { PrismaClient } from "@prisma/client";
 
 const AVAILABLE_BASELINES = [
   { category: "identity", code: "baseline.identity.mfa", label: "MFA for admin and end-user access" },
@@ -51,7 +51,7 @@ export interface WorkflowStateResponse {
 }
 
 export interface WorkflowServiceDependencies {
-  prisma: PrismaClient;
+  prisma: DatabasePrismaClient;
   founderProfiles: FounderProfileRepository;
   businessModels: BusinessModelRepository;
   servicePackages: ServicePackageRepository;
@@ -60,7 +60,7 @@ export interface WorkflowServiceDependencies {
   recommendationResults: RecommendationResultRepository;
 }
 
-interface SaveFounderProfileInput {
+export interface SaveFounderProfileInput {
   id?: string;
   fullName: string;
   roleTitle: string;
@@ -74,7 +74,7 @@ interface SaveFounderProfileInput {
   userId?: string;
 }
 
-interface SaveBusinessModelInput {
+export interface SaveBusinessModelInput {
   id?: string;
   name: string;
   businessType: BusinessModel["businessType"];
@@ -90,7 +90,7 @@ interface SaveBusinessModelInput {
   status: BusinessModel["status"];
 }
 
-interface SaveServicePackageInput {
+export interface SaveServicePackageInput {
   id?: string;
   name: string;
   marketPosition: ServicePackageAggregate["marketPosition"];
@@ -115,7 +115,7 @@ interface SaveServicePackageInput {
   }>;
 }
 
-interface SavePricingModelInput {
+export interface SavePricingModelInput {
   id?: string;
   servicePackageId: string;
   pricingUnit: PricingModel["pricingUnit"];
@@ -210,7 +210,7 @@ export class LaunchOsWorkflowService {
         supportHours: item.supportHours,
         exclusions: item.exclusions,
         priorityLevel: item.priorityLevel,
-        notes: item.notes,
+        ...(item.notes !== undefined ? { notes: item.notes } : {}),
         sortOrder: item.sortOrder,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -234,7 +234,7 @@ export class LaunchOsWorkflowService {
       contractTermMonths: input.contractTermMonths,
       passthroughCost: input.passthroughCost,
       markupPercentage: input.markupPercentage,
-      effectiveMarginPercent: input.effectiveMarginPercent,
+      ...(input.effectiveMarginPercent !== undefined ? { effectiveMarginPercent: input.effectiveMarginPercent } : {}),
       targetMarginPercent: input.targetMarginPercent,
       floorMarginPercent: input.floorMarginPercent,
       createdAt: new Date().toISOString(),
@@ -334,7 +334,7 @@ export class LaunchOsWorkflowService {
             supportHours: item.supportHours,
             exclusions: item.exclusions,
             priorityLevel: item.priorityLevel,
-            notes: item.notes,
+            ...(item.notes !== undefined ? { notes: item.notes } : {}),
             sortOrder: item.sortOrder
           }))
         }
@@ -363,7 +363,7 @@ export class LaunchOsWorkflowService {
           contractTermMonths: state.pricingModel.contractTermMonths,
           passthroughCost: state.pricingModel.passthroughCost,
           markupPercentage: state.pricingModel.markupPercentage,
-          effectiveMarginPercent: state.pricingModel.effectiveMarginPercent,
+          ...(state.pricingModel.effectiveMarginPercent !== undefined ? { effectiveMarginPercent: state.pricingModel.effectiveMarginPercent } : {}),
           targetMarginPercent: state.pricingModel.targetMarginPercent,
           floorMarginPercent: state.pricingModel.floorMarginPercent
         }
@@ -379,7 +379,6 @@ export class LaunchOsWorkflowService {
           contractTermMonths: 0,
           passthroughCost: 0,
           markupPercentage: 0,
-          effectiveMarginPercent: undefined,
           targetMarginPercent: 0,
           floorMarginPercent: 0
         };
@@ -394,26 +393,28 @@ export class LaunchOsWorkflowService {
     const scenario = await this.deps.recommendationScenarios.save(context, {
       id: randomUUID(),
       organizationId: context.organizationId,
-      founderProfileId: state.founderProfile?.id,
-      businessModelId: state.businessModel?.id,
-      servicePackageId: state.servicePackage?.id,
-      pricingModelId: state.pricingModel?.id,
+      ...(state.founderProfile?.id ? { founderProfileId: state.founderProfile.id } : {}),
+      ...(state.businessModel?.id ? { businessModelId: state.businessModel.id } : {}),
+      ...(state.servicePackage?.id ? { servicePackageId: state.servicePackage.id } : {}),
+      ...(state.pricingModel?.id ? { pricingModelId: state.pricingModel.id } : {}),
       contextVersion: "1.0.0",
       rulesVersion: "1.0.0",
       status: "evaluated",
-      founderProfileSnapshot: state.founderProfile
+      ...(state.founderProfile
         ? {
-            fullName: state.founderProfile.fullName,
-            roleTitle: state.founderProfile.roleTitle,
-            priorExperienceYears: state.founderProfile.priorExperienceYears,
-            targetGeo: state.founderProfile.targetGeo,
-            serviceMotion: state.founderProfile.serviceMotion,
-            maturityLevel: state.founderProfile.maturityLevel,
-            salesConfidence: state.founderProfile.salesConfidence,
-            technicalDepth: state.founderProfile.technicalDepth,
-            preferredEngagementModel: state.founderProfile.preferredEngagementModel
+            founderProfileSnapshot: {
+              fullName: state.founderProfile.fullName,
+              roleTitle: state.founderProfile.roleTitle,
+              priorExperienceYears: state.founderProfile.priorExperienceYears,
+              targetGeo: state.founderProfile.targetGeo,
+              serviceMotion: state.founderProfile.serviceMotion,
+              maturityLevel: state.founderProfile.maturityLevel,
+              salesConfidence: state.founderProfile.salesConfidence,
+              technicalDepth: state.founderProfile.technicalDepth,
+              preferredEngagementModel: state.founderProfile.preferredEngagementModel
+            }
           }
-        : undefined,
+        : {}),
       businessModelSnapshot: businessModel,
       servicePackageSnapshot: servicePackage,
       pricingModelSnapshot: pricingModel,
@@ -430,7 +431,7 @@ export class LaunchOsWorkflowService {
       scenarioId: scenario.id,
       contextVersion: scenario.contextVersion,
       rulesVersion: scenario.rulesVersion,
-      founderProfile: scenario.founderProfileSnapshot,
+      ...(scenario.founderProfileSnapshot ? { founderProfile: scenario.founderProfileSnapshot } : {}),
       businessModel,
       servicePackage,
       pricingModel,
@@ -457,7 +458,7 @@ export class LaunchOsWorkflowService {
       updatedAt: timestamp
     });
 
-    await this.deps.prisma.$transaction(async (tx) => {
+    await this.deps.prisma.$transaction(async (tx: DatabasePrismaClient) => {
       await tx.recommendationOutputLink.deleteMany({
         where: {
           organizationId: context.organizationId,
@@ -520,4 +521,6 @@ export const workflowService = new LaunchOsWorkflowService({
   recommendationScenarios: new PrismaRecommendationScenarioRepository(prisma),
   recommendationResults: new PrismaRecommendationResultRepository(prisma)
 });
+
+
 

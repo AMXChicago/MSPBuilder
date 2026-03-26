@@ -47,5 +47,32 @@ MSP/MSSP Launch OS should behave like an operating system for a managed services
 - Marketing and Launch
 - KPI Tracking
 
+## Local Development
+Local env files now exist at:
+- `apps/api/.env`
+- `apps/web/.env.local`
+
+Tracked examples:
+- `apps/api/.env.example`
+- `apps/web/.env.local.example`
+
+Current local defaults:
+- API port: `4000`
+- web API base URL: `http://localhost:4000`
+- development auth bootstrap: enabled
+
+Startup steps:
+1. Start PostgreSQL locally on port `5432`.
+2. From the repo root run the API:
+   `pnpm --dir C:\MySoftware --filter @launch-os/api dev`
+3. In a second terminal run the web app:
+   `pnpm --dir C:\MySoftware --filter @launch-os/web dev`
+4. Open `http://localhost:3000/founder`
+
+Production behavior differs:
+- `/auth/dev-session` is disabled outside explicit development mode.
+- workflow and recommendation routes require a real bearer session plus `x-organization-id`.
+- there is no silent tenant fallback.
+
 ## Current Status
 The repository is in foundation mode. The goal of the current phase is to establish a clean architecture, a normalized schema, and module boundaries before feature implementation begins.

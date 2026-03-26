@@ -20,6 +20,12 @@ export interface IssuedUserSession {
   expiresAt: Date;
 }
 
+export interface DevelopmentSessionBootstrap {
+  token: string;
+  expiresAt: Date;
+  context: AuthenticatedTenantContext;
+}
+
 export async function issueUserSession(
   prisma: PrismaClient,
   input: {
@@ -167,3 +173,16 @@ export async function resolveDevelopmentTenantContext(prisma: PrismaClient): Pro
   };
 }
 
+export async function issueDevelopmentSession(prisma: PrismaClient): Promise<DevelopmentSessionBootstrap> {
+  const context = await resolveDevelopmentTenantContext(prisma);
+  const session = await issueUserSession(prisma, {
+    userId: context.userId,
+    ttlHours: 24
+  });
+
+  return {
+    token: session.token,
+    expiresAt: session.expiresAt,
+    context
+  };
+}

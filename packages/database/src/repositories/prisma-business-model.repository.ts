@@ -49,6 +49,11 @@ export class PrismaBusinessModelRepository implements BusinessModelRepository {
       throw new Error("Business model does not belong to the active organization.");
     }
 
+    const targetGrossMarginPercent = toPrismaDecimal(model.targetGrossMarginPercent);
+    if (!targetGrossMarginPercent) {
+      throw new Error("Business model target gross margin percent is required.");
+    }
+
     const data = {
       organizationId: context.organizationId,
       name: model.name,
@@ -60,7 +65,7 @@ export class PrismaBusinessModelRepository implements BusinessModelRepository {
       budgetPositioning: toPrismaBudgetPositioning(model.budgetPositioning),
       founderMaturity: toPrismaFounderMaturity(model.founderMaturity),
       revenueStrategy: model.revenueStrategy,
-      targetGrossMarginPercent: toPrismaDecimal(model.targetGrossMarginPercent),
+      targetGrossMarginPercent,
       currencyCode: model.currencyCode,
       status: toPrismaLifecycleStatus(model.status)
     };

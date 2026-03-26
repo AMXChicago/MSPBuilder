@@ -1,6 +1,24 @@
 # User Flows
 
+## Local Founder Workflow
+For local development, the founder workflow no longer requires manual header entry in the browser.
+
+Local flow:
+1. Developer runs API with `AUTH_ALLOW_DEV_FALLBACK=true` in development mode.
+2. Developer runs the web app with `NEXT_PUBLIC_AUTH_ALLOW_DEV_FALLBACK=true`.
+3. User opens `/founder`.
+4. Frontend initializes development auth through `GET /auth/dev-session`.
+5. Frontend stores the returned bearer token and tenant context.
+6. Frontend calls:
+   - `GET /workflow/state`
+   - `POST` / `PUT` workflow routes
+   - `GET /recommendation/preview`
+   with the required auth headers automatically attached.
+7. Founder workflow becomes usable immediately without custom browser setup.
+
 ## Authenticated Founder Workflow
+In non-development environments, the workflow remains strict.
+
 1. Operator authenticates and receives a bearer session token.
 2. Operator selects an organization context.
 3. Client sends workflow requests with:
@@ -11,10 +29,29 @@
 6. Founder, business model, service package, and pricing records are saved only within that tenant.
 7. Recommendation preview rebuilds from persisted records for that same authenticated tenant.
 
-## Improved Recommendation Review Flow
-The recommendation page is now meant to help an internal operator or founder answer a practical question: “Are we launch-ready, and what should we do next?”
+## Tenant-Aware Workflow Behavior
+What is enforced:
+- unauthenticated requests are rejected
+- requests for organizations outside the user membership set are rejected
+- workflow state is loaded only for the authenticated tenant
+- recommendation preview reads only persisted records for the authenticated tenant
+- route handlers do not implement tenant resolution themselves; they rely on one shared auth and membership path
 
-The page now shows:
+## Development Auth Behavior
+Development bootstrap is explicit.
+
+It works only when:
+- API runs with `NODE_ENV=development`
+- API runs with `AUTH_ALLOW_DEV_FALLBACK=true`
+- web runs with `NEXT_PUBLIC_AUTH_ALLOW_DEV_FALLBACK=true`
+
+Production behavior differs:
+- `/auth/dev-session` is disabled
+- workflow and recommendation routes require real auth
+- there is no silent tenant fallback
+
+## Recommendation Review Flow
+The recommendation page shows:
 - overall score
 - readiness level
 - risk level
@@ -26,67 +63,7 @@ The page now shows:
 - top stack choices with fit reasons and tradeoffs
 - structured explainability grouped by pricing, package, stack, security, and launch
 
-## Tenant-Aware Workflow Behavior
-The active workflow behaves like a real multi-tenant SaaS path instead of relying on a dev shortcut.
-
-What is enforced:
-- unauthenticated requests are rejected
-- requests for organizations outside the user membership set are rejected
-- workflow state is loaded only for the authenticated tenant
-- recommendation preview reads only persisted records for the authenticated tenant
-- route handlers do not implement tenant resolution themselves; they rely on one shared auth and membership path
-
-## Recommendation Preview Behavior
-Recommendation preview remains read-mostly and explainable.
-
-For an authenticated tenant, the API:
-- loads the latest persisted founder workflow records
-- builds a recommendation scenario snapshot
-- runs the rules engine
-- persists the recommendation scenario and unified result
-- returns launch-readiness interpretation plus structured explanation items
-
-## Explainability Structure
-Recommendation output is now easier to review internally because major findings are structured instead of only being freeform strings.
-
-Each explanation item includes:
-- category
-- impact
-- message
-- recommended action
-
-This lets the frontend group recommendation output cleanly without embedding business logic in the UI.
-
-## Launch Readiness Interpretation
-The aggregated result now interprets the recommendation for operators.
-
-It answers:
-- how strong the current launch posture is
-- what is blocking launch
-- what is accelerating launch
-- which three actions matter most next
-
-This is especially important for internal founder testing because a score alone is not actionable enough.
-
-## Development Fallback
-A development fallback is still available for local work, but it is no longer silent.
-
-It is only allowed when:
-- the server is not running in production mode
-- `AUTH_ALLOW_DEV_FALLBACK=true`
-- the request explicitly opts in to development auth behavior
-
-## Future Role Expansion
-Current authorization is membership-based. Future role expansion should plug in after authenticated tenant resolution.
-
-Planned extension point:
-- resolve session
-- resolve membership
-- evaluate role policy for route or action
-- continue into workflow service
-
 ## Known Limitations
-- Vendor-fit still uses seeded vendor intelligence rather than a larger curated catalog.
-- The web app still needs a real login/session UX wired to these authenticated API requirements.
-- Session issuance, logout, and revocation flows are not yet exposed to operators.
+- The web app still needs a real login/session UX for non-development use.
+- Session issuance, logout, and revocation flows are not yet exposed to operators beyond development bootstrap.
 - Fine-grained RBAC is not implemented yet beyond membership validation.

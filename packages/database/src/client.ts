@@ -1,9 +1,10 @@
 import { PrismaClient } from "@prisma/client";
 
 declare global {
-  // eslint-disable-next-line no-var
   var __launchOsPrisma__: PrismaClient | undefined;
 }
+
+export type DatabasePrismaClient = PrismaClient;
 
 export function createPrismaClient() {
   return new PrismaClient();

@@ -269,7 +269,7 @@ export function fromPrismaServicePackageItem(record: PrismaServicePackageItemRec
     supportHours: record.supportHours === "BUSINESS_HOURS" ? "business-hours" : record.supportHours === "EXTENDED_HOURS" ? "extended-hours" : "24x7",
     exclusions: record.exclusions,
     priorityLevel: record.priorityLevel.toLowerCase() as PriorityLevel,
-    notes: record.notes ?? undefined,
+    ...(record.notes !== null ? { notes: record.notes } : {}),
     sortOrder: record.sortOrder,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString()
@@ -313,7 +313,7 @@ export function fromPrismaPricingModel(record: PrismaPricingModelRecord): Pricin
     contractTermMonths: record.contractTermMonths,
     passthroughCost: Number(record.passthroughCost),
     markupPercentage: Number(record.markupPercentage),
-    effectiveMarginPercent: toNumber(record.effectiveMarginPercent),
+    ...(record.effectiveMarginPercent !== null ? { effectiveMarginPercent: Number(record.effectiveMarginPercent) } : {}),
     targetMarginPercent: Number(record.targetMarginPercent),
     floorMarginPercent: Number(record.floorMarginPercent),
     createdAt: record.createdAt.toISOString(),
@@ -325,19 +325,19 @@ export function fromPrismaRecommendationScenario(record: PrismaRecommendationSce
   return {
     id: record.id,
     organizationId: record.organizationId,
-    founderProfileId: record.founderProfileId ?? undefined,
-    businessModelId: record.businessModelId ?? undefined,
-    servicePackageId: record.servicePackageId ?? undefined,
-    pricingModelId: record.pricingModelId ?? undefined,
+    ...(record.founderProfileId ? { founderProfileId: record.founderProfileId } : {}),
+    ...(record.businessModelId ? { businessModelId: record.businessModelId } : {}),
+    ...(record.servicePackageId ? { servicePackageId: record.servicePackageId } : {}),
+    ...(record.pricingModelId ? { pricingModelId: record.pricingModelId } : {}),
     contextVersion: record.contextVersion,
     rulesVersion: record.rulesVersion,
     status: record.status.toLowerCase() as ScenarioStatus,
-    founderProfileSnapshot: (record.founderProfileSnapshot as RecommendationScenario["founderProfileSnapshot"]) ?? undefined,
-    businessModelSnapshot: record.businessModelSnapshot as RecommendationScenario["businessModelSnapshot"],
-    servicePackageSnapshot: record.servicePackageSnapshot as RecommendationScenario["servicePackageSnapshot"],
-    pricingModelSnapshot: record.pricingModelSnapshot as RecommendationScenario["pricingModelSnapshot"],
-    constraintSnapshot: record.constraintSnapshot as RecommendationScenario["constraintSnapshot"],
-    vendorSnapshot: (record.vendorSnapshot as Record<string, unknown> | null) ?? undefined,
+    ...(record.founderProfileSnapshot ? { founderProfileSnapshot: record.founderProfileSnapshot as unknown as RecommendationScenario["founderProfileSnapshot"] } : {}),
+    businessModelSnapshot: record.businessModelSnapshot as unknown as RecommendationScenario["businessModelSnapshot"],
+    servicePackageSnapshot: record.servicePackageSnapshot as unknown as RecommendationScenario["servicePackageSnapshot"],
+    pricingModelSnapshot: record.pricingModelSnapshot as unknown as RecommendationScenario["pricingModelSnapshot"],
+    constraintSnapshot: record.constraintSnapshot as unknown as RecommendationScenario["constraintSnapshot"],
+    ...(record.vendorSnapshot ? { vendorSnapshot: record.vendorSnapshot as unknown as Record<string, unknown> } : {}),
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString()
   };
@@ -354,8 +354,8 @@ export function fromPrismaPersistedRecommendationResult(record: PrismaRecommenda
     confidenceLevel: record.confidenceLevel as PersistedRecommendationResult["confidenceLevel"],
     confidenceScore: Number(record.confidenceScore),
     summary: record.summary,
-    resultSnapshot: record.resultSnapshot as Record<string, unknown>,
-    detailedBreakdown: record.detailedBreakdown as Record<string, unknown>,
+    resultSnapshot: record.resultSnapshot as unknown as Record<string, unknown>,
+    detailedBreakdown: record.detailedBreakdown as unknown as Record<string, unknown>,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString()
   };
@@ -367,7 +367,7 @@ export function fromPrismaVendor(record: PrismaVendorRecord): Vendor {
     organizationId: record.organizationId,
     name: record.name,
     category: record.category === "EMAIL_SECURITY" ? "email-security" : record.category.toLowerCase() as Vendor["category"],
-    websiteUrl: record.websiteUrl ?? undefined,
+    ...(record.websiteUrl ? { websiteUrl: record.websiteUrl } : {}),
     msspFriendly: record.msspFriendly,
     supportsMultiTenant: record.supportsMultiTenant,
     createdAt: record.createdAt.toISOString(),
@@ -382,5 +382,3 @@ export function toPrismaDecimal(value: number | undefined) {
 
   return new Prisma.Decimal(value);
 }
-
-

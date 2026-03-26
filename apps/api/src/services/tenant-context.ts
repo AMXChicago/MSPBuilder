@@ -3,10 +3,10 @@ import {
   authenticateSessionToken,
   prisma,
   resolveDevelopmentTenantContext as resolveDevTenantContext,
-  resolveMembership
+  resolveMembership,
+  type DatabasePrismaClient
 } from "@launch-os/database";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import type { PrismaClient } from "@prisma/client";
 
 export class AuthenticationRequiredError extends Error {
   readonly statusCode = 401;
@@ -36,7 +36,7 @@ export class OrganizationAccessDeniedError extends Error {
 }
 
 export interface TenantResolutionDependencies {
-  prisma: PrismaClient;
+  prisma: DatabasePrismaClient;
   allowDevelopmentFallback?: boolean;
 }
 

@@ -53,19 +53,19 @@ export class PrismaRecommendationScenarioRepository implements RecommendationSce
 
     const data = {
       organizationId: context.organizationId,
-      founderProfileId: model.founderProfileId,
-      businessModelId: model.businessModelId,
-      servicePackageId: model.servicePackageId,
-      pricingModelId: model.pricingModelId,
+      ...(model.founderProfileId ? { founderProfileId: model.founderProfileId } : {}),
+      ...(model.businessModelId ? { businessModelId: model.businessModelId } : {}),
+      ...(model.servicePackageId ? { servicePackageId: model.servicePackageId } : {}),
+      ...(model.pricingModelId ? { pricingModelId: model.pricingModelId } : {}),
       contextVersion: model.contextVersion,
       rulesVersion: model.rulesVersion,
       status: toPrismaScenarioStatus(model.status),
-      founderProfileSnapshot: model.founderProfileSnapshot,
+      ...(model.founderProfileSnapshot ? { founderProfileSnapshot: model.founderProfileSnapshot } : {}),
       businessModelSnapshot: model.businessModelSnapshot,
       servicePackageSnapshot: model.servicePackageSnapshot,
       pricingModelSnapshot: model.pricingModelSnapshot,
       constraintSnapshot: model.constraintSnapshot,
-      vendorSnapshot: model.vendorSnapshot
+      ...(model.vendorSnapshot ? { vendorSnapshot: model.vendorSnapshot } : {})
     };
 
     const record = existing
@@ -125,14 +125,20 @@ export class PrismaRecommendationResultRepository implements RecommendationResul
       throw new Error("Recommendation result does not belong to the active organization.");
     }
 
+    const overallScore = toPrismaDecimal(model.overallScore);
+    const confidenceScore = toPrismaDecimal(model.confidenceScore);
+    if (!overallScore || !confidenceScore) {
+      throw new Error("Recommendation result contains missing numeric values.");
+    }
+
     const data = {
       organizationId: context.organizationId,
       scenarioId: model.scenarioId,
-      overallScore: toPrismaDecimal(model.overallScore),
+      overallScore,
       readinessLevel: model.readinessLevel,
       riskLevel: model.riskLevel,
       confidenceLevel: model.confidenceLevel,
-      confidenceScore: toPrismaDecimal(model.confidenceScore),
+      confidenceScore,
       summary: model.summary,
       resultSnapshot: model.resultSnapshot,
       detailedBreakdown: model.detailedBreakdown

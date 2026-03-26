@@ -1,7 +1,9 @@
 import type {
   ConfidenceLevel,
+  ExplanationItem,
   PackageCompletenessOutput,
   PricingReadinessOutput,
+  ReadinessLevel,
   RecommendationContext,
   RecommendationPreviewResponse,
   RecommendationResult,
@@ -9,9 +11,7 @@ import type {
   RiskLevel,
   SecurityBaselineSelectionOutput,
   StackFitOutput,
-  UnifiedRecommendationResult,
-  ReadinessLevel,
-  ExplanationItem
+  UnifiedRecommendationResult
 } from "./types";
 import { clampConfidence, clampScore } from "./scoring";
 import { recommendationRegistry } from "../registry/default-registry";
@@ -59,6 +59,14 @@ function uniqueExplanationItems(items: ExplanationItem[]) {
     seen.add(key);
     return true;
   });
+}
+
+function firstResult<T>(results: RecommendationResult<T>[], code: string): RecommendationResult<T> {
+  const result = results[0];
+  if (!result) {
+    throw new Error(`Recommendation policy ${code} returned no results.`);
+  }
+  return result;
 }
 
 function buildMissingInformation(context: RecommendationContext, detailedBreakdown: RecommendationPreviewResponse["detailedBreakdown"]) {
@@ -118,6 +126,7 @@ function buildTopActionItems(detailedBreakdown: RecommendationPreviewResponse["d
 
 function buildRecommendedNextSteps(result: { readinessLevel: ReadinessLevel; riskLevel: RiskLevel; confidenceLevel: ConfidenceLevel; missingInformation: { hasBlockingGaps: boolean } }, detailedBreakdown: RecommendationPreviewResponse["detailedBreakdown"]) {
   const steps: string[] = [];
+  const leadChoice = detailedBreakdown.stackFit.data.topChoices[0];
 
   if (result.missingInformation.hasBlockingGaps) {
     steps.push("Complete missing workflow inputs before treating this recommendation as launch-ready.");
@@ -127,8 +136,8 @@ function buildRecommendedNextSteps(result: { readinessLevel: ReadinessLevel; ris
     steps.push("Resolve the highest-risk package and pricing gaps before validating the offer internally.");
   }
 
-  if (detailedBreakdown.stackFit.data.topChoices.length > 0) {
-    steps.push(`Review ${detailedBreakdown.stackFit.data.topChoices[0].vendorName} as the lead stack choice and confirm cost assumptions.`);
+  if (leadChoice) {
+    steps.push(`Review ${leadChoice.vendorName} as the lead stack choice and confirm cost assumptions.`);
   }
 
   if (result.readinessLevel === "medium" || result.readinessLevel === "low") {
@@ -276,20 +285,24 @@ export function aggregateRecommendation(
     ? `Launch readiness is constrained by ${baseResult.launchBlockers.length} blocker(s) that should be resolved before customer-facing rollout.`
     : `Launch readiness is supported by a coherent offer design, stack shortlist, and baseline posture with ${baseResult.launchAccelerators.length} notable accelerator(s).`;
 
-  baseResult.explainability.items = uniqueExplanationItems([
-    ...baseResult.explainability.items,
+  const launchExplanationItems: ExplanationItem[] = [
     ...baseResult.launchBlockers.map((item) => ({
-      category: "launch",
+      category: "launch" as const,
       impact: "negative" as const,
       message: item,
       recommendedAction: "Resolve this blocker before launch or clearly reduce the promise of the offer."
     })),
     ...baseResult.launchAccelerators.map((item) => ({
-      category: "launch",
+      category: "launch" as const,
       impact: "positive" as const,
       message: item,
       recommendedAction: "Use this strength in operator review, packaging, and go-to-market positioning."
     }))
+  ];
+
+  baseResult.explainability.items = uniqueExplanationItems([
+    ...baseResult.explainability.items,
+    ...launchExplanationItems
   ]);
 
   return baseResult;
@@ -299,11 +312,11 @@ export function evaluateRecommendationPreview(
   context: RecommendationContext,
   weights: RecommendationWeights = defaultRecommendationWeights
 ): RecommendationPreviewResponse {
-  const detailedBreakdown = {
-    pricingReadiness: recommendationRegistry.pricingReadiness.run(context)[0],
-    packageCompleteness: recommendationRegistry.packageCompleteness.run(context)[0],
-    stackFit: recommendationRegistry.stackFit.run(context)[0],
-    securityBaseline: recommendationRegistry.securityBaseline.run(context)[0]
+  const detailedBreakdown: RecommendationPreviewResponse["detailedBreakdown"] = {
+    pricingReadiness: firstResult(recommendationRegistry.pricingReadiness.run(context), "pricing-readiness"),
+    packageCompleteness: firstResult(recommendationRegistry.packageCompleteness.run(context), "package-completeness"),
+    stackFit: firstResult(recommendationRegistry.stackFit.run(context), "stack-fit"),
+    securityBaseline: firstResult(recommendationRegistry.securityBaseline.run(context), "security-baseline")
   };
 
   return {

@@ -1,7 +1,7 @@
 # System Design
 
 ## Architecture Summary
-The current MVP runs as a TypeScript monorepo with a thin Next.js workflow UI, a Fastify API, a centralized rules engine, and Prisma-backed persistence. The active founder workflow is authenticated, membership-scoped, and now produces richer launch-readiness recommendations that are explainable and operator-reviewable.
+The current MVP runs as a TypeScript monorepo with a thin Next.js workflow UI, a Fastify API, a centralized rules engine, and Prisma-backed persistence. The active founder workflow is authenticated, membership-scoped, and can now bootstrap a usable local development session automatically when development auth is explicitly enabled.
 
 ## Authentication Approach
 The API uses Prisma-backed bearer sessions for authenticated access.
@@ -19,10 +19,25 @@ Current auth primitives:
 ## Runtime Responsibilities
 ### Web
 - calls authenticated workflow endpoints
+- initializes a development session automatically when `NEXT_PUBLIC_AUTH_ALLOW_DEV_FALLBACK=true`
+- stores the local dev token and tenant context in one centralized client helper
 - renders a minimal operator-facing recommendation review surface
 - does not contain recommendation or tenant-authorization logic
 
 ### API
+- registers `GET /auth/dev-session` for explicit development bootstrap
+- registers workflow routes:
+  - `GET /workflow/state`
+  - `POST /founder`
+  - `PUT /founder`
+  - `POST /business-model`
+  - `PUT /business-model`
+  - `POST /service-package`
+  - `PUT /service-package`
+  - `POST /pricing`
+  - `PUT /pricing`
+- registers recommendation routes:
+  - `GET /recommendation/preview`
 - authenticates bearer session tokens
 - resolves organization membership from the authenticated user plus the requested organization context
 - rejects unauthenticated or cross-tenant access before workflow handlers run
@@ -33,14 +48,7 @@ Current auth primitives:
 ### Rules Engine
 - consumes normalized `RecommendationContext`
 - scores pricing readiness, package completeness, stack fit, and security baseline selection
-- aggregates these into a stable `RecommendationResult` with:
-  - overall score
-  - readiness, risk, and confidence
-  - launch summary
-  - launch blockers and accelerators
-  - next three actions
-  - structured explanation items
-  - top stack choices with fit reasons and tradeoffs
+- aggregates these into a stable `RecommendationResult` with overall score, readiness, risk, confidence, launch summary, blockers, accelerators, next actions, and structured explanation items
 
 ### Database Layer
 - uses Prisma as the persistence boundary
@@ -48,65 +56,20 @@ Current auth primitives:
 - every repository method requires explicit organization context
 - workflow state, recommendation scenarios, recommendation results, and auth sessions are persisted
 
-## Recommendation Output Model
-The recommendation output is now designed for founder/operator review rather than raw policy inspection.
+## Development Auth Bootstrap
+Local development auth is now explicit and usable.
 
-Key result sections:
-- `overallScore`, `readinessLevel`, `riskLevel`, `confidenceLevel`
-- `launchSummary`
-- `launchBlockers`
-- `launchAccelerators`
-- `nextThreeActions`
-- `stackFitSummary.data.topChoices`
-- `explainability.items`
+Bootstrap flow:
+1. Web app starts with `NEXT_PUBLIC_AUTH_ALLOW_DEV_FALLBACK=true`.
+2. First workflow request path calls the centralized auth helper.
+3. Helper requests `GET /auth/dev-session`.
+4. API verifies that:
+   - `NODE_ENV !== production`
+   - `AUTH_ALLOW_DEV_FALLBACK=true`
+5. API bootstraps the development user and organization if needed, issues a real bearer session, and returns tenant context.
+6. Web app stores the bearer token and `organizationId`, then attaches them automatically to workflow and recommendation requests.
 
-This creates a stable, frontend-friendly API contract where the UI can render a useful review experience without reconstructing logic from scattered policy strings.
-
-## Explainability Structure
-Each policy can now emit structured explanation items instead of only freeform strings.
-
-Each explanation item includes:
-- `category`
-- `impact`
-- `message`
-- `recommendedAction`
-
-This improves operator usability in three ways:
-- reasons can be grouped consistently by pricing, package, stack, security, and launch
-- positive versus negative signals are clearer
-- every important issue can carry an explicit action recommendation
-
-## Improved Stack-Fit Logic
-Vendor-fit scoring is now materially sensitive to founder workflow inputs.
-
-At minimum, stack scoring now considers:
-- business type
-- target verticals
-- delivery model
-- compliance sensitivity
-- budget positioning
-- founder maturity
-- service package composition
-- pricing posture
-
-Stack outputs now include:
-- top recommended vendor choices
-- why each choice fits
-- tradeoffs to watch
-- coverage gaps in the current shortlist
-- vendor score breakdowns for operator review
-
-## Launch Readiness Interpretation
-The aggregated recommendation now explicitly answers whether the founder looks launch-ready, not just whether individual policies scored well.
-
-Interpretation logic combines:
-- weighted policy scores
-- missing information and input completeness
-- package and pricing blockers
-- stack coverage gaps
-- positive accelerators already present in the workflow
-
-This gives internal operators a more useful answer than a raw score alone.
+This keeps local development friction low without weakening production paths.
 
 ## Membership-Based Tenant Resolution
 The tenant boundary is enforced through one reusable path.
@@ -120,30 +83,20 @@ Resolution flow:
 6. If membership exists, the request receives an authenticated tenant context.
 7. If membership does not exist, the request is rejected with `403`.
 
-## Authorization Model
-Current authorization is intentionally simple and explicit.
+## Development Versus Production
+Development mode:
+- `GET /auth/dev-session` works only when development auth is explicitly enabled.
+- frontend can auto-bootstrap a session and tenant context.
 
-Rules enforced now:
-- every workflow and recommendation route requires authentication
-- every workflow and recommendation route requires organization membership
-- users can only read and write records for organizations they belong to
-- recommendation preview only reads persisted records for the authenticated tenant
-- repositories and services receive tenant context explicitly so organization scoping is never implicit
-
-Role capture is already present through `OrganizationMember.role`, but route-level behavior is not yet differentiated by role. Future RBAC can plug in after membership resolution, before service orchestration.
-
-## Development Fallback Behavior
-The old silent development fallback has been removed from the production path.
-
-A development bootstrap path still exists, but only when both of these are true:
-- `NODE_ENV` is not `production`
-- `AUTH_ALLOW_DEV_FALLBACK=true`
-
-Even then, it is opt-in at request time through an explicit development header rather than being silently applied to every unauthenticated request.
+Production mode:
+- `GET /auth/dev-session` returns `404`.
+- workflow and recommendation routes require real bearer auth.
+- missing auth returns `401`.
+- cross-tenant access returns `403`.
 
 ## Known Limitations
 - Vendor-fit still depends on seeded vendor profiles rather than a fully managed vendor intelligence dataset.
 - The web app still needs a first-class login/session flow wired into these authenticated API requirements.
-- Session issuance and revocation endpoints are not yet built for operators.
+- Session issuance and revocation endpoints are not yet built for operators beyond the explicit development bootstrap path.
 - RBAC is still membership-based only and does not yet differentiate owner/admin/operator/advisor privileges in handlers.
 - I could not run typecheck, Prisma generation, or tests in this environment because `node` and `pnpm` are unavailable.

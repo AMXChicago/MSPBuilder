@@ -16,6 +16,7 @@
     "@launch-os/database": "workspace:*",
     "@launch-os/domain": "workspace:*",
     "@launch-os/rules-engine": "workspace:*",
+    "@prisma/client": "^6.0.0",
     "fastify": "^5.0.0",
     "zod": "^3.24.0"
   },

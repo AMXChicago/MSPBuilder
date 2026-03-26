@@ -5,6 +5,7 @@ import { vendorMetadataSeeds } from "./seed/vendor-metadata";
 import { toPrismaLifecycleStatus, toPrismaVendorCategory } from "./converters";
 
 export interface DevelopmentTenantBootstrapResult extends TenantContext {
+  userId: string;
   organizationName: string;
   userEmail: string;
   userFullName: string;
@@ -112,4 +113,3 @@ export async function ensureDevelopmentTenant(prisma: PrismaClient): Promise<Dev
     userFullName: user.fullName
   };
 }
-

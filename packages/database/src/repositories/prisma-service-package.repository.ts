@@ -81,20 +81,27 @@ export class PrismaServicePackageRepository implements ServicePackageRepository 
 
       if (model.items.length > 0) {
         await tx.servicePackageItem.createMany({
-          data: model.items.map((item) => ({
-            id: item.id,
-            organizationId: context.organizationId,
-            servicePackageId: savedPackage.id,
-            serviceDefinitionId: item.serviceDefinitionId,
-            isRequired: item.isRequired,
-            includedQuantity: toPrismaDecimal(item.includedQuantity),
-            slaTier: toPrismaSlaTier(item.slaTier),
-            supportHours: toPrismaSupportHours(item.supportHours),
-            exclusions: item.exclusions,
-            priorityLevel: toPrismaPriorityLevel(item.priorityLevel),
-            notes: item.notes,
-            sortOrder: item.sortOrder
-          }))
+          data: model.items.map((item) => {
+            const includedQuantity = toPrismaDecimal(item.includedQuantity);
+            if (!includedQuantity) {
+              throw new Error("Service package item included quantity is required.");
+            }
+
+            return {
+              id: item.id,
+              organizationId: context.organizationId,
+              servicePackageId: savedPackage.id,
+              serviceDefinitionId: item.serviceDefinitionId,
+              isRequired: item.isRequired,
+              includedQuantity,
+              slaTier: toPrismaSlaTier(item.slaTier),
+              supportHours: toPrismaSupportHours(item.supportHours),
+              exclusions: item.exclusions,
+              priorityLevel: toPrismaPriorityLevel(item.priorityLevel),
+              ...(item.notes !== undefined ? { notes: item.notes } : {}),
+              sortOrder: item.sortOrder
+            };
+          })
         });
       }
 

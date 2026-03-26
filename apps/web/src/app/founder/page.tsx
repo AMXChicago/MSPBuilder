@@ -4,7 +4,7 @@ import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { WorkflowShell } from "../../components/workflow/workflow-shell";
-import { getWorkflowState, saveJson } from "../../lib/launch-os";
+import { ensureDevelopmentSession, getWorkflowState, saveJson } from "../../lib/launch-os";
 
 interface FounderDraft {
   id?: string;
@@ -42,6 +42,7 @@ export default function FounderPage() {
   useEffect(() => {
     async function load() {
       try {
+        await ensureDevelopmentSession();
         const state = await getWorkflowState();
         if (state.founderProfile) {
           setDraft(state.founderProfile);
