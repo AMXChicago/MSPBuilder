@@ -3,7 +3,40 @@ import test from "node:test";
 import type { PrismaClient } from "@prisma/client";
 import { PrismaFounderProfileRepository, PrismaRecommendationResultRepository } from "../index";
 
-function createFounderRecord(id: string, organizationId: string, userId: string, updatedAt: Date) {
+type FounderRecord = {
+  id: string;
+  organizationId: string;
+  userId: string;
+  fullName: string;
+  roleTitle: string;
+  priorExperienceYears: number;
+  targetGeo: string;
+  serviceMotion: string;
+  maturityLevel: string;
+  salesConfidence: number;
+  technicalDepth: number;
+  preferredEngagementModel: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type RecommendationResultRecord = {
+  id: string;
+  organizationId: string;
+  scenarioId: string;
+  overallScore: number;
+  readinessLevel: string;
+  riskLevel: string;
+  confidenceLevel: string;
+  confidenceScore: number;
+  summary: string;
+  resultSnapshot: { overallScore: number };
+  detailedBreakdown: { pricing: Record<string, never> };
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+function createFounderRecord(id: string, organizationId: string, userId: string, updatedAt: Date): FounderRecord {
   return {
     id,
     organizationId,
@@ -23,7 +56,7 @@ function createFounderRecord(id: string, organizationId: string, userId: string,
 }
 
 test("PrismaFounderProfileRepository scopes reads and writes by organization", async () => {
-  const founderProfiles = [
+  const founderProfiles: FounderRecord[] = [
     createFounderRecord("founder-a", "org-a", "user-a", new Date("2026-03-01T00:00:00.000Z")),
     createFounderRecord("founder-b", "org-b", "user-b", new Date("2026-03-02T00:00:00.000Z"))
   ];
@@ -47,12 +80,21 @@ test("PrismaFounderProfileRepository scopes reads and writes by organization", a
 
         return matches[0] ?? null;
       },
-      async update({ where, data }: { where: { id: string }; data: Partial<typeof founderProfiles[number]> }) {
+      async update({ where, data }: { where: { id: string }; data: Partial<FounderRecord> }) {
         const index = founderProfiles.findIndex((record) => record.id === where.id);
-        founderProfiles[index] = { ...founderProfiles[index], ...data, updatedAt: new Date("2026-03-03T00:00:00.000Z") };
-        return founderProfiles[index];
+        const existing = founderProfiles[index];
+        if (!existing) {
+          throw new Error(`Unknown founder record ${where.id}`);
+        }
+        const updated: FounderRecord = {
+          ...existing,
+          ...data,
+          updatedAt: new Date("2026-03-03T00:00:00.000Z")
+        };
+        founderProfiles[index] = updated;
+        return updated;
       },
-      async create({ data }: { data: typeof founderProfiles[number] }) {
+      async create({ data }: { data: FounderRecord }) {
         founderProfiles.push(data);
         return data;
       }
@@ -91,7 +133,7 @@ test("PrismaFounderProfileRepository scopes reads and writes by organization", a
 });
 
 test("PrismaRecommendationResultRepository retrieves results per tenant and scenario", async () => {
-  const recommendationResults = [
+  const recommendationResults: RecommendationResultRecord[] = [
     {
       id: "result-a",
       organizationId: "org-a",
@@ -142,12 +184,20 @@ test("PrismaRecommendationResultRepository retrieves results per tenant and scen
 
         return matches[0] ?? null;
       },
-      async update({ where, data }: { where: { id: string }; data: Partial<typeof recommendationResults[number]> }) {
+      async update({ where, data }: { where: { id: string }; data: Partial<RecommendationResultRecord> }) {
         const index = recommendationResults.findIndex((record) => record.id === where.id);
-        recommendationResults[index] = { ...recommendationResults[index], ...data };
-        return recommendationResults[index];
+        const existing = recommendationResults[index];
+        if (!existing) {
+          throw new Error(`Unknown recommendation result ${where.id}`);
+        }
+        const updated: RecommendationResultRecord = {
+          ...existing,
+          ...data
+        };
+        recommendationResults[index] = updated;
+        return updated;
       },
-      async create({ data }: { data: typeof recommendationResults[number] }) {
+      async create({ data }: { data: RecommendationResultRecord }) {
         recommendationResults.push(data);
         return data;
       }

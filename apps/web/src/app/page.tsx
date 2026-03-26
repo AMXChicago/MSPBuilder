@@ -1,12 +1,10 @@
-import Link from "next/link";
-
 const steps = [
   { href: "/founder", label: "Founder" },
   { href: "/business-model", label: "Business Model" },
   { href: "/service-package", label: "Service Package" },
   { href: "/pricing", label: "Pricing" },
   { href: "/recommendation", label: "Recommendation" }
-];
+] as const;
 
 export default function HomePage() {
   return (
@@ -16,12 +14,12 @@ export default function HomePage() {
       <ol>
         {steps.map((step) => (
           <li key={step.href}>
-            <Link href={step.href}>{step.label}</Link>
+            <a href={step.href}>{step.label}</a>
           </li>
         ))}
       </ol>
       <p>
-        Start at <Link href="/founder">/founder</Link> to walk the full input-to-recommendation workflow.
+        Start at <a href="/founder">/founder</a> to walk the full input-to-recommendation workflow.
       </p>
     </main>
   );

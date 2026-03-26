@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 interface WorkflowShellProps {
@@ -15,7 +14,7 @@ const steps = [
   { href: "/service-package", label: "Service Package" },
   { href: "/pricing", label: "Pricing" },
   { href: "/recommendation", label: "Recommendation" }
-];
+] as const;
 
 export function WorkflowShell({ title, description, currentStep, children, savedStateLabel }: WorkflowShellProps) {
   const currentIndex = Math.max(steps.findIndex((step) => step.label === currentStep), 0);
@@ -29,7 +28,7 @@ export function WorkflowShell({ title, description, currentStep, children, saved
       </div>
       <nav style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
         {steps.map((step, index) => (
-          <Link
+          <a
             key={step.href}
             href={step.href}
             style={{
@@ -39,7 +38,7 @@ export function WorkflowShell({ title, description, currentStep, children, saved
             }}
           >
             {index + 1}. {step.label}
-          </Link>
+          </a>
         ))}
       </nav>
       <h1>{title}</h1>

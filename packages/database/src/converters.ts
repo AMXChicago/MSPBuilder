@@ -48,14 +48,6 @@ import type {
   Vendor
 } from "@launch-os/domain";
 
-function toNumber(value: Prisma.Decimal | number | null | undefined) {
-  if (value == null) {
-    return undefined;
-  }
-
-  return Number(value);
-}
-
 const lifecycleStatusMap: Record<LifecycleStatus, PrismaLifecycleStatus> = {
   draft: "DRAFT",
   active: "ACTIVE",
@@ -322,6 +314,10 @@ export function fromPrismaPricingModel(record: PrismaPricingModelRecord): Pricin
 }
 
 export function fromPrismaRecommendationScenario(record: PrismaRecommendationScenarioRecord): RecommendationScenario {
+  const founderProfileSnapshot = record.founderProfileSnapshot
+    ? record.founderProfileSnapshot as unknown as RecommendationScenario["founderProfileSnapshot"]
+    : null;
+
   return {
     id: record.id,
     organizationId: record.organizationId,
@@ -332,7 +328,7 @@ export function fromPrismaRecommendationScenario(record: PrismaRecommendationSce
     contextVersion: record.contextVersion,
     rulesVersion: record.rulesVersion,
     status: record.status.toLowerCase() as ScenarioStatus,
-    ...(record.founderProfileSnapshot ? { founderProfileSnapshot: record.founderProfileSnapshot as unknown as RecommendationScenario["founderProfileSnapshot"] } : {}),
+    ...(founderProfileSnapshot ? { founderProfileSnapshot } : {}),
     businessModelSnapshot: record.businessModelSnapshot as unknown as RecommendationScenario["businessModelSnapshot"],
     servicePackageSnapshot: record.servicePackageSnapshot as unknown as RecommendationScenario["servicePackageSnapshot"],
     pricingModelSnapshot: record.pricingModelSnapshot as unknown as RecommendationScenario["pricingModelSnapshot"],

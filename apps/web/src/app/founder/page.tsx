@@ -79,12 +79,16 @@ export default function FounderPage() {
     }
   }
 
+  const savedStateLabel = hasSavedState
+    ? "Saved founder profile loaded. Updates will overwrite the current tenant-scoped record."
+    : undefined;
+
   return (
     <WorkflowShell
       currentStep="Founder"
       title="Founder Profile"
       description="Capture the operator context that will shape recommendations."
-      savedStateLabel={hasSavedState ? "Saved founder profile loaded. Updates will overwrite the current tenant-scoped record." : undefined}
+      {...(savedStateLabel ? { savedStateLabel } : {})}
     >
       {isLoading ? <p>Loading founder profile...</p> : null}
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>

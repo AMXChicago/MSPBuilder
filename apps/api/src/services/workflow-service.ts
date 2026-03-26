@@ -458,7 +458,7 @@ export class LaunchOsWorkflowService {
       updatedAt: timestamp
     });
 
-    await this.deps.prisma.$transaction(async (tx: DatabasePrismaClient) => {
+    await this.deps.prisma.$transaction(async (tx) => {
       await tx.recommendationOutputLink.deleteMany({
         where: {
           organizationId: context.organizationId,
@@ -521,6 +521,7 @@ export const workflowService = new LaunchOsWorkflowService({
   recommendationScenarios: new PrismaRecommendationScenarioRepository(prisma),
   recommendationResults: new PrismaRecommendationResultRepository(prisma)
 });
+
 
 
 

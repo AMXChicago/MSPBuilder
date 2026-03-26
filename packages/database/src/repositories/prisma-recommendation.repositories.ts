@@ -1,3 +1,4 @@
+import { Prisma, type PrismaClient } from "@prisma/client";
 import type {
   PersistedRecommendationResult,
   RecommendationResultRepository,
@@ -5,13 +6,16 @@ import type {
   RecommendationScenarioRepository,
   TenantContext
 } from "@launch-os/domain";
-import type { PrismaClient } from "@prisma/client";
 import {
   fromPrismaPersistedRecommendationResult,
   fromPrismaRecommendationScenario,
   toPrismaDecimal,
   toPrismaScenarioStatus
 } from "../converters";
+
+function toInputJson(value: unknown): Prisma.InputJsonValue {
+  return value as Prisma.InputJsonValue;
+}
 
 export class PrismaRecommendationScenarioRepository implements RecommendationScenarioRepository {
   constructor(private readonly prisma: PrismaClient) {}
@@ -60,12 +64,12 @@ export class PrismaRecommendationScenarioRepository implements RecommendationSce
       contextVersion: model.contextVersion,
       rulesVersion: model.rulesVersion,
       status: toPrismaScenarioStatus(model.status),
-      ...(model.founderProfileSnapshot ? { founderProfileSnapshot: model.founderProfileSnapshot } : {}),
-      businessModelSnapshot: model.businessModelSnapshot,
-      servicePackageSnapshot: model.servicePackageSnapshot,
-      pricingModelSnapshot: model.pricingModelSnapshot,
-      constraintSnapshot: model.constraintSnapshot,
-      ...(model.vendorSnapshot ? { vendorSnapshot: model.vendorSnapshot } : {})
+      ...(model.founderProfileSnapshot ? { founderProfileSnapshot: toInputJson(model.founderProfileSnapshot) } : {}),
+      businessModelSnapshot: toInputJson(model.businessModelSnapshot),
+      servicePackageSnapshot: toInputJson(model.servicePackageSnapshot),
+      pricingModelSnapshot: toInputJson(model.pricingModelSnapshot),
+      constraintSnapshot: toInputJson(model.constraintSnapshot),
+      ...(model.vendorSnapshot ? { vendorSnapshot: toInputJson(model.vendorSnapshot) } : {})
     };
 
     const record = existing
@@ -140,8 +144,8 @@ export class PrismaRecommendationResultRepository implements RecommendationResul
       confidenceLevel: model.confidenceLevel,
       confidenceScore,
       summary: model.summary,
-      resultSnapshot: model.resultSnapshot,
-      detailedBreakdown: model.detailedBreakdown
+      resultSnapshot: toInputJson(model.resultSnapshot),
+      detailedBreakdown: toInputJson(model.detailedBreakdown)
     };
 
     const record = existing

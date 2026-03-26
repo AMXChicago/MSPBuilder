@@ -49,10 +49,13 @@ export function createApp(dependencies: AppDependencies = {}) {
   });
 
   app.register(registerHealthRoutes, { prefix: "/health" });
-  app.register(registerAuthRoutes, { prefix: "/auth", allowDevelopmentFallback, prisma: dependencies.prisma });
+  app.register(registerAuthRoutes, {
+    prefix: "/auth",
+    allowDevelopmentFallback,
+    ...(dependencies.prisma ? { prisma: dependencies.prisma } : {})
+  });
   app.register(registerWorkflowRoutes, { workflowService, tenantContextResolver });
   app.register(registerRecommendationRoutes, { prefix: "/recommendation", workflowService, tenantContextResolver });
 
   return app;
 }
-

@@ -106,12 +106,16 @@ export default function BusinessModelPage() {
     }
   }
 
+  const savedStateLabel = hasSavedState
+    ? "Saved business model loaded. Updates will overwrite the current tenant-scoped record."
+    : undefined;
+
   return (
     <WorkflowShell
       currentStep="Business Model"
       title="Business Model"
       description="Define the MSP/MSSP posture that recommendation policies should optimize for."
-      savedStateLabel={hasSavedState ? "Saved business model loaded. Updates will overwrite the current tenant-scoped record." : undefined}
+      {...(savedStateLabel ? { savedStateLabel } : {})}
     >
       {isLoading ? <p>Loading business model...</p> : null}
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>

@@ -1,11 +1,9 @@
-import Link from "next/link";
-
 const links = [
   { href: "/internal/founder-profile", label: "Founder Profile" },
   { href: "/internal/business-model", label: "Business Model" },
   { href: "/internal/service-package", label: "Service Package Builder" },
   { href: "/internal/pricing-input", label: "Pricing Input" }
-];
+] as const;
 
 export default function InternalIndexPage() {
   return (
@@ -14,9 +12,9 @@ export default function InternalIndexPage() {
       <p style={{ color: "var(--muted)" }}>Use these lightweight forms to validate the founder, business, package, pricing, and recommendation-context model.</p>
       <div style={{ display: "grid", gap: 12 }}>
         {links.map((link) => (
-          <Link key={link.href} href={link.href} style={{ padding: 16, borderRadius: 14, border: "1px solid var(--border)", background: "rgba(255,255,255,0.82)" }}>
+          <a key={link.href} href={link.href} style={{ padding: 16, borderRadius: 14, border: "1px solid var(--border)", background: "rgba(255,255,255,0.82)" }}>
             {link.label}
-          </Link>
+          </a>
         ))}
       </div>
     </main>

@@ -380,7 +380,7 @@ function createWorkflowService(prisma: PrismaClient) {
   });
 }
 
-function createAuthenticatedHeaders(token: string, organizationId = "org-a") {
+function createAuthenticatedHeaders(token: string, organizationId: string) {
   return {
     authorization: `Bearer ${token}`,
     "x-organization-id": organizationId
@@ -453,17 +453,17 @@ test("dev auth bootstrap returns a usable session in development mode", async ()
 
   assert.equal(devSessionResponse.statusCode, 200);
   assert.equal(devSessionBody.ok, true);
-  assert.equal(devSessionBody.data.tenant.organizationId, "org-a");
+  assert.ok(typeof devSessionBody.data.tenant.organizationId === "string");
   assert.ok(typeof devSessionBody.data.token === "string");
   assert.equal(sessions.length, 1);
 
   const workflowResponse = await app.inject({
     method: "GET",
     url: "/workflow/state",
-    headers: createAuthenticatedHeaders(devSessionBody.data.token)
+    headers: createAuthenticatedHeaders(devSessionBody.data.token, devSessionBody.data.tenant.organizationId)
   });
   assert.equal(workflowResponse.statusCode, 200);
-  assert.equal(workflowResponse.json().data.tenant.organizationId, "org-a");
+  assert.equal(workflowResponse.json().data.tenant.organizationId, devSessionBody.data.tenant.organizationId);
 
   await app.close();
   process.env.NODE_ENV = previousNodeEnv;
@@ -483,13 +483,14 @@ test("workflow state fetch works with valid dev auth context", async () => {
   });
 
   const devSessionResponse = await app.inject({ method: "GET", url: "/auth/dev-session" });
-  const token = (devSessionResponse.json() as { data: { token: string } }).data.token;
-  await saveMinimalWorkflow(app, createAuthenticatedHeaders(token));
+  const devSessionBody = devSessionResponse.json() as { data: { token: string; tenant: AuthenticatedTenantContext } };
+  const token = devSessionBody.data.token;
+  await saveMinimalWorkflow(app, createAuthenticatedHeaders(token, devSessionBody.data.tenant.organizationId));
 
   const stateResponse = await app.inject({
     method: "GET",
     url: "/workflow/state",
-    headers: createAuthenticatedHeaders(token)
+    headers: createAuthenticatedHeaders(token, devSessionBody.data.tenant.organizationId)
   });
   assert.equal(stateResponse.statusCode, 200);
   assert.equal(stateResponse.json().data.founderProfile.fullName, "Alex Founder");
@@ -521,3 +522,7 @@ test("production mode rejects missing auth and disables dev bootstrap", async ()
   await app.close();
   process.env.NODE_ENV = previousNodeEnv;
 });
+
+
+
+

@@ -146,12 +146,16 @@ export default function ServicePackagePage() {
     }
   }
 
+  const savedStateLabel = hasSavedState
+    ? "Saved service package loaded. Updates will overwrite the current tenant-scoped record."
+    : undefined;
+
   return (
     <WorkflowShell
       currentStep="Service Package"
       title="Service Package"
       description="Build a minimal package definition that the recommendation engine can evaluate."
-      savedStateLabel={hasSavedState ? "Saved service package loaded. Updates will overwrite the current tenant-scoped record." : undefined}
+      {...(savedStateLabel ? { savedStateLabel } : {})}
     >
       {isLoading ? <p>Loading service package...</p> : null}
       <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>

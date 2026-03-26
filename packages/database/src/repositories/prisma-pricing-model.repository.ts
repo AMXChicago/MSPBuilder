@@ -66,6 +66,7 @@ export class PrismaPricingModelRepository implements PricingModelRepository {
     const markupPercentage = toPrismaDecimal(model.markupPercentage);
     const targetMarginPercent = toPrismaDecimal(model.targetMarginPercent);
     const floorMarginPercent = toPrismaDecimal(model.floorMarginPercent);
+    const effectiveMarginPercent = model.effectiveMarginPercent !== undefined ? toPrismaDecimal(model.effectiveMarginPercent) : undefined;
 
     if (!monthlyBasePrice || !onboardingFee || !overageUnitPrice || !passthroughCost || !markupPercentage || !targetMarginPercent || !floorMarginPercent) {
       throw new Error("Pricing model contains missing required decimal values.");
@@ -85,7 +86,7 @@ export class PrismaPricingModelRepository implements PricingModelRepository {
       contractTermMonths: model.contractTermMonths,
       passthroughCost,
       markupPercentage,
-      ...(model.effectiveMarginPercent !== undefined ? { effectiveMarginPercent: toPrismaDecimal(model.effectiveMarginPercent) } : {}),
+      ...(effectiveMarginPercent ? { effectiveMarginPercent } : {}),
       targetMarginPercent,
       floorMarginPercent
     };

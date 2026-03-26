@@ -71,7 +71,8 @@ export default function PricingPage() {
           });
           setHasSavedState(true);
         } else if (state.servicePackage) {
-          setDraft((current) => ({ ...current, servicePackageId: state.servicePackage?.id }));
+          const servicePackageId = state.servicePackage.id;
+          setDraft((current) => ({ ...current, servicePackageId }));
         }
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Unable to load pricing state.");
@@ -119,12 +120,16 @@ export default function PricingPage() {
     }
   }
 
+  const savedStateLabel = hasSavedState
+    ? "Saved pricing model loaded. Updates will overwrite the current tenant-scoped record."
+    : undefined;
+
   return (
     <WorkflowShell
       currentStep="Pricing"
       title="Pricing"
       description="Enter pricing inputs so the recommendation engine can assess commercial readiness."
-      savedStateLabel={hasSavedState ? "Saved pricing model loaded. Updates will overwrite the current tenant-scoped record." : undefined}
+      {...(savedStateLabel ? { savedStateLabel } : {})}
     >
       {isLoading ? <p>Loading pricing state...</p> : null}
       {packageName ? <p>Active service package: {packageName}</p> : <p>Pricing requires a saved service package first.</p>}
@@ -147,3 +152,5 @@ export default function PricingPage() {
     </WorkflowShell>
   );
 }
+
+
